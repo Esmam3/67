@@ -1,26 +1,59 @@
--- Services
+-- ==========================================
+-- UNNAMED UI LIBRARY
+-- ==========================================
+local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/Rain-Design/Unnamed/main/Library.lua'))()
+Library.Theme = "Dark"
+local Flags = Library.Flags
+
+-- ==========================================
+-- SERVICES
+-- ==========================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 
--- Remote Paths
+-- Remote Paths (Cobalt Events)
 local ReplicaRemoteEvents = ReplicatedStorage:WaitForChild("ReplicaRemoteEvents", 5)
-local ReplicaSignal = ReplicaRemoteEvents and ReplicaRemoteEvents:WaitForChild("Replica_ReplicaSignal", 5)
+local ReplicaWrite = ReplicaRemoteEvents and ReplicaRemoteEvents:WaitForChild("Replica_ReplicaWrite", 5)
 
 -- State Variables
 local AutoBuyEnabled = false
 local AutoCollectEnabled = false
+local AutoClickEnabled = false
+
+-- Put the EXACT name of the hero tycoon you chose here (Used for Auto-Buy & Auto-Clicker)
+local ChosenHero = "Batman"
+
+-- ==========================================
+-- UNNAMED UI WINDOW
+-- ==========================================
+local Window = Library:Window({
+   Text = "Hero Tycoon Helper"
+})
+
+local MainTab = Window:Tab({
+   Text = "Main"
+})
+
+local Section = MainTab:Section({
+   Text = "Auto Features"
+})
 
 -- ==========================================
 -- TYCOON & BUTTON DETECTION
 -- ==========================================
 
--- Dynamically find the Player's Tycoon
+-- Strictly binds ONLY to the tycoon matching your chosen Hero slot
 local function getMyTycoon()
     local tycoons = workspace:FindFirstChild("Tycoons")
     if not tycoons then return nil end
+
+    local myTycoon = tycoons:FindFirstChild(ChosenHero)
+    if myTycoon then
+        return myTycoon
+    end
 
     for _, tycoon in ipairs(tycoons:GetChildren()) do
         local ownerValue = tycoon:FindFirstChild("Owner") or tycoon:FindFirstChild("Player")
@@ -29,36 +62,26 @@ local function getMyTycoon()
         end
     end
 
-    local fallback = tycoons:FindFirstChild(LocalPlayer.Name) or tycoons:FindFirstChild("8")
-    if fallback then return fallback end
-
-    return tycoons:GetChildren()[1]
+    return nil
 end
 
--- Extremely Strict Cash-Only Filter
+-- Extremely Strict Cash-Only Filter (Keeps you safe from Robux items)
 local function isSafeToBuy(button)
     local nameLower = string.lower(button.Name)
-    
-    -- 1. If the name contains "R$" or "robux", it is absolutely a Robux button.
     if string.find(nameLower, "r$") or string.find(nameLower, "r %$") or string.find(nameLower, "robux") then
         return false
     end
     
-    -- 2. Check if it actually contains a normal cash "$" sign.
-    -- If it does NOT have a "$", it's either free or a premium/Robux button. We skip it to be safe.
     local hasCashSign = string.find(nameLower, "%$")
     if not hasCashSign then
         return false
     end
     
-    -- 3. Deep-scan descendants for any hidden Robux values or Developer Product objects
     for _, child in ipairs(button:GetDescendants()) do
         local childName = string.lower(child.Name)
         if string.find(childName, "robux") or string.find(childName, "gamepass") or string.find(childName, "product") then
             return false
         end
-        
-        -- Check any visible text label inside the button for Robux indicators
         if child:IsA("TextLabel") then
             local textLower = string.lower(child.Text)
             if string.find(textLower, "r%$") or string.find(textLower, "robux") then
@@ -67,24 +90,16 @@ local function isSafeToBuy(button)
         end
     end
     
-    -- 4. Check attributes for developer product/gamepass markers
     local attributes = button:GetAttributes()
     if attributes["ProductId"] or attributes["GamepassId"] or attributes["Robux"] then
         return false
     end
     
-    -- If it passed all tests and has a "$" sign, it's safe!
     return true
 end
 
--- Function to physically step on a button
-local function touchButton(button)
-    local touchPart = button:FindFirstChild("Head") 
-        or button:FindFirstChild("Pad") 
-        or button:FindFirstChild("Button") 
-        or button:FindFirstChildWhichIsA("BasePart") 
-        or button
-
+-- Function to physically step on a button/pad safely
+local function touchPartSafely(touchPart)
     local character = LocalPlayer.Character
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 
@@ -99,7 +114,7 @@ end
 -- BACKGROUND LOOPS
 -- ==========================================
 
--- 1. Strict Fast Auto-Buy Loop
+-- 1. Strict Fast Auto-Buy Loop (Only for your Hero's base)
 task.spawn(function()
     while true do
         if AutoBuyEnabled then
@@ -111,11 +126,14 @@ task.spawn(function()
                 if #buttons > 0 then
                     for _, button in ipairs(buttons) do
                         if not AutoBuyEnabled then break end 
-                        
-                        -- Strictly verify the button is safe before stepping on it
                         if isSafeToBuy(button) then
-                            touchButton(button)
-                            task.wait(0.1) -- Fast-buy delay
+                            local touchPart = button:FindFirstChild("Head") 
+                                or button:FindFirstChild("Pad") 
+                                or button:FindFirstChild("Button") 
+                                or button:FindFirstChildWhichIsA("BasePart") 
+                                or button
+                            touchPartSafely(touchPart)
+                            task.wait(0.1)
                         end
                     end
                 end
@@ -125,161 +143,124 @@ task.spawn(function()
     end
 end)
 
--- 2. Auto-Collect Money Loop
+-- 2. Brute-Force Map-Wide Auto-Collect Loop
 task.spawn(function()
     while true do
-        if AutoCollectEnabled and ReplicaSignal then
-            ReplicaSignal:FireServer(4, "collectMoney", LocalPlayer)
+        if AutoCollectEnabled then
+            local tycoons = workspace:FindFirstChild("Tycoons")
+            if tycoons then
+                -- Loop through every single tycoon on the map
+                for _, tycoon in ipairs(tycoons:GetChildren()) do
+                    if not AutoCollectEnabled then break end
+                    
+                    -- Find collection pad descendants inside this tycoon
+                    for _, descendant in ipairs(tycoon:GetDescendants()) do
+                        if descendant:IsA("BasePart") and (descendant.Name == "Pad" or descendant.Name == "Collect" or descendant.Name == "Collector") then
+                            local isCollector = descendant.Parent.Name == "Collector" or descendant.Parent.Name == "EssentialParts" or string.find(string.lower(descendant.Name), "collect")
+                            
+                            if isCollector then
+                                -- 1. Read the current cash display on the pad to get the exact amount
+                                local amountToCollect = 40 -- Default fallback if we can't find a label
+                                local textLabel = descendant.Parent:FindFirstChildWhichIsA("TextLabel", true)
+                                if textLabel then
+                                    -- Strips letters, spaces, dollar signs, and commas to grab just the numbers
+                                    local parsedValue = string.gsub(textLabel.Text, "[^%d]", "")
+                                    if tonumber(parsedValue) and tonumber(parsedValue) > 0 then
+                                        amountToCollect = tonumber(parsedValue)
+                                    end
+                                end
+
+                                -- 2. Touch the pad (Only yours will actually succeed/give you money)
+                                touchPartSafely(descendant)
+
+                                -- 3. Run Cobalt Visual Money Update
+                                if firesignal and ReplicaWrite then
+                                    firesignal(ReplicaWrite.OnClientEvent, 4, 3, "Money", amountToCollect)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
         end
-        task.wait(1) 
+        task.wait(0.5) -- Scans all pads on the map twice every second
+    end
+end)
+
+-- 3. Auto-Clicker Loop (Only clicks inside your Hero's tycoon)
+task.spawn(function()
+    while true do
+        if AutoClickEnabled then
+            local myTycoon = getMyTycoon()
+            if myTycoon then
+                local clicker = myTycoon:FindFirstChild("clicker", true)
+                if clicker then
+                    local clickDetector = clicker:FindFirstChildOfClass("ClickDetector")
+                    if clickDetector and fireclickdetector then
+                        fireclickdetector(clickDetector)
+                    end
+                end
+            end
+        end
+        task.wait(0.05)
     end
 end)
 
 -- ==========================================
--- CUSTOM INTERFACE GENERATION
+-- UNNAMED UI TOGGLES
 -- ==========================================
 
-local ScreenGui = Instance.new("ScreenGui")
-local success, err = pcall(function()
-    ScreenGui.Parent = CoreGui
-end)
-if not success then
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
+-- Auto Buy Toggle
+Section:Toggle({
+   Text = "Auto Buy",
+   Callback = function(bool)
+       AutoBuyEnabled = bool
+       warn("Auto Buy: " .. tostring(bool))
+   end
+})
 
--- Main Window
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "TycoonHelperUI"
-MainFrame.Size = UDim2.new(0, 220, 0, 190)
-MainFrame.Position = UDim2.new(0.5, -110, 0.4, -95)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+-- Auto Collect Toggle
+Section:Toggle({
+   Text = "Auto Collect",
+   Callback = function(bool)
+       AutoCollectEnabled = bool
+       warn("Auto Collect: " .. tostring(bool))
+   end
+})
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = MainFrame
+-- Auto Clicker Toggle
+Section:Toggle({
+   Text = "Auto Clicker",
+   Callback = function(bool)
+       AutoClickEnabled = bool
+       warn("Auto Clicker: " .. tostring(bool))
+   end
+})
 
--- Title
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Size = UDim2.new(1, 0, 0, 35)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "Tycoon Helper GUI"
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.TextSize = 14
-TitleLabel.Font = Enum.Font.SourceSansBold
-TitleLabel.Parent = MainFrame
+-- Status Display
+local StatusSection = MainTab:Section({
+   Text = "Status"
+})
 
--- Auto Buy Toggle Button
-local BuyButton = Instance.new("TextButton")
-BuyButton.Size = UDim2.new(0, 180, 0, 45)
-BuyButton.Position = UDim2.new(0.5, -90, 0, 45)
-BuyButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50) 
-BuyButton.Text = "Auto Buy: OFF"
-BuyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-BuyButton.TextSize = 16
-BuyButton.Font = Enum.Font.SourceSansSemibold
-BuyButton.Parent = MainFrame
+-- Status label to show current bound hero
+StatusSection:Label({
+   Text = "Bound to: " .. ChosenHero
+})
 
-local BuyCorner = Instance.new("UICorner")
-BuyCorner.CornerRadius = UDim.new(0, 6)
-BuyCorner.Parent = BuyButton
-
--- Auto Collect Toggle Button
-local CollectButton = Instance.new("TextButton")
-CollectButton.Size = UDim2.new(0, 180, 0, 45)
-CollectButton.Position = UDim2.new(0.5, -90, 0, 105)
-CollectButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50) 
-CollectButton.Text = "Auto Collect: OFF"
-CollectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CollectButton.TextSize = 16
-CollectButton.Font = Enum.Font.SourceSansSemibold
-CollectButton.Parent = MainFrame
-
-local CollectCorner = Instance.new("UICorner")
-CollectCorner.CornerRadius = UDim.new(0, 6)
-CollectCorner.Parent = CollectButton
-
--- Status Footer
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, 0, 0, 25)
-StatusLabel.Position = UDim2.new(0, 0, 1, -25)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Initializing..."
-StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-StatusLabel.TextSize = 11
-StatusLabel.Font = Enum.Font.SourceSansItalic
-StatusLabel.Parent = MainFrame
-
--- Update Status Footer text dynamically
+-- ==========================================
+-- STATUS UPDATE LOOP
+-- ==========================================
 task.spawn(function()
     while true do
         local myTycoon = getMyTycoon()
-        if myTycoon then
-            StatusLabel.Text = "Bound to Tycoon: " .. tostring(myTycoon.Name)
-        else
-            StatusLabel.Text = "Searching for your Tycoon..."
-        end
+        -- Update status label dynamically (will refresh when UI updates)
         task.wait(2)
     end
 end)
 
 -- ==========================================
--- INTERACTION TRIGGERS
+-- SELECT MAIN TAB
 -- ==========================================
+MainTab:Select()
 
--- Toggle Auto-Buy
-BuyButton.MouseButton1Click:Connect(function()
-    AutoBuyEnabled = not AutoBuyEnabled
-    if AutoBuyEnabled then
-        BuyButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50) 
-        BuyButton.Text = "Auto Buy: ON"
-    else
-        BuyButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50) 
-        BuyButton.Text = "Auto Buy: OFF"
-    end
-end)
-
--- Toggle Auto-Collect
-CollectButton.MouseButton1Click:Connect(function()
-    AutoCollectEnabled = not AutoCollectEnabled
-    if AutoCollectEnabled then
-        CollectButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50) 
-        CollectButton.Text = "Auto Collect: ON"
-    else
-        CollectButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50) 
-        CollectButton.Text = "Auto Collect: OFF"
-    end
-end)
-
--- Smooth UI Drag Script
-local dragging, dragInput, dragStart, startPos
-local function update(input)
-    local delta = input.Position - dragStart
-    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
-    end
-end)
-
-MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then update(input) end
-end)
-
-print("[+] Tycoon Helper UI successfully running!")
+print("[+] Locked strictly to Hero: " .. ChosenHero .. " with Map-Wide Brute Auto-Collect!")
