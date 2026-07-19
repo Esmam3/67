@@ -1,0 +1,80 @@
+-- Load the Rain-Design Unnamed Library
+local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/Rain-Design/Unnamed/main/Library.lua'))()
+Library.Theme = "Dark"
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local SPAWN_PLACE_ID = 138381251771774
+local PORTAL_POS = Vector3.new(132, 60, 265)
+
+local isSpawn = (game.PlaceId == SPAWN_PLACE_ID)
+local autoFarmActive = false
+
+-- --- UI SETUP VIA LIBRARY ---
+local Window = Library:Window({
+   Text = isSpawn and "Verdant - Spawn Menu" or "Verdant - Farm Menu"
+})
+
+local Tab = Window:Tab({
+   Text = "Main"
+})
+
+local Section = Tab:Section({
+   Text = isSpawn and "Spawn Features" or "Farming Features"
+})
+
+if isSpawn then
+    -- Spawn Place: Clickable button to teleport and create portal
+    Section:Button({
+       Text = "Start Game",
+       Callback = function()
+           local player = Players.LocalPlayer
+           local character = player.Character or player.CharacterAdded:Wait()
+           local rootPart = character:WaitForChild("HumanoidRootPart")
+           
+           rootPart.CFrame = CFrame.new(PORTAL_POS)
+           task.wait(0.5) -- Reduced delay after teleporting
+           
+           local PortalEvent = ReplicatedStorage.VerdantRemotes["VDT_Portal.CreateSetup"]
+           PortalEvent:FireServer({
+               Difficulty = "Easy",
+               MaxPlayers = 1
+           })
+       end
+    })
+else
+    -- Any Other Place: Toggle for the optimized fast item loop
+    Section:Toggle({
+       Text = "Auto Farm",
+       Callback = function(bool)
+           autoFarmActive = bool
+       end
+    })
+    
+    -- Optimized, faster background farming thread
+    task.spawn(function()
+        while true do
+            if autoFarmActive then
+                -- Fire Bucket Used
+                local BucketUsed = ReplicatedStorage.VerdantRemotes["VDT_Bucket.Used"]
+                BucketUsed:FireServer(workspace.Water.Top)
+                task.wait(0.15) -- Snappier delay
+                
+                -- Fire Bucket Poured
+                local BucketPoured = ReplicatedStorage.VerdantRemotes["VDT_Bucket.Poured"]
+                BucketPoured:FireServer(workspace.Scripted.CheckpointParts["1"].Drain.Scripted.ProximityPosition.ProximityPrompt)
+                task.wait(0.15) -- Snappier delay
+                
+                -- Fire Tokens Take
+                local TokensTake = ReplicatedStorage.VerdantRemotes["VDT_Tokens.Take"]
+                TokensTake:FireServer(workspace.Scripted.CheckpointParts["1"].Drain.Scripted.ProximityPosition.ProximityPrompt)
+                task.wait(0.5) -- Optimized cooldown between full cycles
+            else
+                task.wait(0.5) -- Idle protection
+            end
+        end
+    end)
+end
+
+Tab:Select()
