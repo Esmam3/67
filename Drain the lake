@@ -11,6 +11,19 @@ local PORTAL_POS = Vector3.new(132, 60, 265)
 local isSpawn = (game.PlaceId == SPAWN_PLACE_ID)
 local autoFarmActive = false
 
+-- --- DEFAULT DELAY CONFIGURATION ---
+local delays = {
+    BucketUsed = 0.15,
+    BucketPoured = 0.15,
+    TokensTake = 0.5
+}
+
+-- Helper function to safely turn text input into a number
+local function parseDelay(text, default)
+    local num = tonumber(text)
+    return num or default
+end
+
 -- --- UI SETUP VIA LIBRARY ---
 local Window = Library:Window({
    Text = isSpawn and "Verdant - Spawn Menu" or "Verdant - Farm Menu"
@@ -34,7 +47,7 @@ if isSpawn then
            local rootPart = character:WaitForChild("HumanoidRootPart")
            
            rootPart.CFrame = CFrame.new(PORTAL_POS)
-           task.wait(0.5) -- Reduced delay after teleporting
+           task.wait(0.5)
            
            local PortalEvent = ReplicatedStorage.VerdantRemotes["VDT_Portal.CreateSetup"]
            PortalEvent:FireServer({
@@ -51,27 +64,58 @@ else
            autoFarmActive = bool
        end
     })
+
+    -- Text Boxes for easy mobile typing instead of sliders
+    Section:Input({
+       Text = "Bucket Used Delay (Current: 0.15)",
+       Callback = function(txt)
+           delays.BucketUsed = parseDelay(txt, 0.15)
+       end
+    })
+
+    Section:Input({
+       Text = "Bucket Poured Delay (Current: 0.15)",
+       Callback = function(txt)
+           delays.BucketPoured = parseDelay(txt, 0.15)
+       end
+    })
+
+    Section:Input({
+       Text = "Cycle End Delay (Current: 0.5)",
+       Callback = function(txt)
+           delays.TokensTake = parseDelay(txt, 0.5)
+       end
+    })
     
-    -- Optimized, faster background farming thread
+    -- Automatic Cutscene Auto-Skip (No toggle, runs natively in background)
+    task.spawn(function()
+        local CutsceneEvent = ReplicatedStorage:WaitForChild("VerdantRemotes"):WaitForChild("VDT_CutsceneVoteSkip")
+        while true do
+            CutsceneEvent:FireServer("711dcd8c-d084-47b0-81de-3b27a701d892")
+            task.wait(1.0)
+        end
+    end)
+    
+    -- Optimized background farming thread using dynamic text box values
     task.spawn(function()
         while true do
             if autoFarmActive then
                 -- Fire Bucket Used
                 local BucketUsed = ReplicatedStorage.VerdantRemotes["VDT_Bucket.Used"]
                 BucketUsed:FireServer(workspace.Water.Top)
-                task.wait(0.15) -- Snappier delay
+                task.wait(delays.BucketUsed)
                 
                 -- Fire Bucket Poured
                 local BucketPoured = ReplicatedStorage.VerdantRemotes["VDT_Bucket.Poured"]
                 BucketPoured:FireServer(workspace.Scripted.CheckpointParts["1"].Drain.Scripted.ProximityPosition.ProximityPrompt)
-                task.wait(0.15) -- Snappier delay
+                task.wait(delays.BucketPoured)
                 
                 -- Fire Tokens Take
                 local TokensTake = ReplicatedStorage.VerdantRemotes["VDT_Tokens.Take"]
                 TokensTake:FireServer(workspace.Scripted.CheckpointParts["1"].Drain.Scripted.ProximityPosition.ProximityPrompt)
-                task.wait(0.5) -- Optimized cooldown between full cycles
+                task.wait(delays.TokensTake)
             else
-                task.wait(0.5) -- Idle protection
+                task.wait(0.5)
             end
         end
     end)
