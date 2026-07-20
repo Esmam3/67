@@ -4,113 +4,107 @@ Library.Theme = "Dark"
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local VirtualUser = game:GetService("VirtualUser")
+local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
+
+local CC = Instance.new("ColorCorrectionEffect", Lighting)
+CC.Name = "CustomCC"
 
 local SPAWN_PLACE_ID = 138381251771774
 local PORTAL_POS = Vector3.new(132, 60, 265)
 
 local isSpawn = (game.PlaceId == SPAWN_PLACE_ID)
 local autoFarmActive = false
+local vaultLoopActive = false
+local staminaLoopConnection = nil 
+local gravityConnection = nil
+local antiAfkConnection = nil
+local flyConnection = nil
+local flyEnabled = false
+local flySpeed = 50
 
--- Auto Upgrade Variables
-local autoUpgrade = {
-    Root = false,
-    Buckets = false,
-    Character = false,
-    Diamonds = false,
-    Survival = false,
-    Treasure = false
-}
+local autoUpgrade = { Root = false, Buckets = false, Character = false, Diamonds = false, Survival = false, Treasure = false }
+local delays = { BucketUsed = 0.15, BucketPoured = 0.15, TokensTake = 0.5 }
+local charSettings = { speed = 16, jump = 50, walkEnabled = false, jumpEnabled = false }
 
--- --- DEFAULT DELAY CONFIGURATION ---
-local delays = {
-    BucketUsed = 0.15,
-    BucketPoured = 0.15,
-    TokensTake = 0.5
-}
+local function parseDelay(text, default) return tonumber(text) or default end
 
-local function parseDelay(text, default)
-    local num = tonumber(text)
-    return num or default
+local PurchaseRemote, ChestRemote
+if not isSpawn then
+    PurchaseRemote = ReplicatedStorage:WaitForChild("VerdantRemotes"):WaitForChild("VDT_SkillTree.Purchase", 5)
+    ChestRemote = ReplicatedStorage:WaitForChild("VerdantRemotes"):WaitForChild("VDT_Chest.Open")
 end
 
--- Remotes
-local PurchaseRemote = ReplicatedStorage:WaitForChild("VerdantRemotes"):WaitForChild("VDT_SkillTree.Purchase", 5)
-
--- --- UI SETUP ---
-local Window = Library:Window({
-   Text = isSpawn and "Verdant - Spawn Menu" or "Verdant - Farm Menu"
-})
-
+local Window = Library:Window({ Text = isSpawn and "Verdant - Spawn Menu" or "Verdant - Farm Menu" })
 local Tab = Window:Tab({ Text = "Main" })
+local FarmingSection = Tab:Section({ Text = isSpawn and "Spawn Features" or "Farming Features", Side = "Left" })
 
-local FarmingSection = Tab:Section({
-   Text = isSpawn and "Spawn Features" or "Farming Features",
-   Side = "Left"  -- default, but explicit for clarity
-})
+-- Vault Automation (Only loads if NOT in Lobby)
+if not isSpawn then
+    local VaultSection = Tab:Section({ Text = "Vault Automation", Side = "Left" })
+    VaultSection:Button({ Text = "Teleport to Vault", Callback = function()
+        local char = Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = CFrame.new(-23, 1190, -729)
+        end
+    end})
+
+    VaultSection:Toggle({ Text = "Auto Farm Vault", Callback = function(b)
+        vaultLoopActive = b
+        if vaultLoopActive then
+            local char = Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = CFrame.new(-23, 1190, -729)
+            end
+            task.spawn(function()
+                local prompt = workspace:FindFirstChild("Scripted") and workspace.Scripted:FindFirstChild("VaultStart") and workspace.Scripted.VaultStart:FindFirstChild("ProximityPrompt")
+                if prompt then
+                    prompt.HoldDuration = 0
+                    while vaultLoopActive do
+                        if fireproximityprompt then fireproximityprompt(prompt)
+                        else prompt:InputHoldBegin(); prompt:InputHoldEnd() end
+                        task.wait(0.1)
+                    end
+                end
+            end)
+        end
+    end})
+end
 
 if isSpawn then
-    FarmingSection:Button({
-       Text = "Start Game",
-       Callback = function()
-           local player = Players.LocalPlayer
-           local character = player.Character or player.CharacterAdded:Wait()
-           local rootPart = character:WaitForChild("HumanoidRootPart")
-           rootPart.CFrame = CFrame.new(PORTAL_POS)
-           task.wait(0.5)
-           
-           local PortalEvent = ReplicatedStorage.VerdantRemotes["VDT_Portal.CreateSetup"]
-           PortalEvent:FireServer({ Difficulty = "Easy", MaxPlayers = 1 })
-       end
-    })
+    FarmingSection:Button({ Text = "Start Best Difficulty", Callback = function()
+        local rootPart = Players.LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+        local wins = Players.LocalPlayer:FindFirstChild("leaderstats") and Players.LocalPlayer.leaderstats:FindFirstChild("Wins") and Players.LocalPlayer.leaderstats.Wins.Value or 0
+        
+        local difficulty = "Easy"
+        if wins >= 2 then difficulty = "Hard"
+        elseif wins >= 1 then difficulty = "Medium" end
+
+        rootPart.CFrame = CFrame.new(PORTAL_POS)
+        task.wait(0.5)
+        ReplicatedStorage.VerdantRemotes["VDT_Portal.CreateSetup"]:FireServer({ Difficulty = difficulty, MaxPlayers = 1 })
+    end})
 else
     FarmingSection:Toggle({ Text = "Auto Farm", Callback = function(b) autoFarmActive = b end })
+    FarmingSection:Input({ Text = "Bucket Used Delay (0.15)", Callback = function(t) delays.BucketUsed = parseDelay(t, 0.15) end })
+    FarmingSection:Input({ Text = "Bucket Poured Delay (0.15)", Callback = function(t) delays.BucketPoured = parseDelay(t, 0.15) end })
+    FarmingSection:Input({ Text = "Cycle End Delay (0.5)", Callback = function(t) delays.TokensTake = parseDelay(t, 0.5) end })
 
-    FarmingSection:Input({ Text = "Bucket Used Delay (Current: 0.15)", Callback = function(t) delays.BucketUsed = parseDelay(t, 0.15) end })
-    FarmingSection:Input({ Text = "Bucket Poured Delay (Current: 0.15)", Callback = function(t) delays.BucketPoured = parseDelay(t, 0.15) end })
-    FarmingSection:Input({ Text = "Cycle End Delay (Current: 0.5)", Callback = function(t) delays.TokensTake = parseDelay(t, 0.5) end })
+    local UpgradeSection = Tab:Section({ Text = "Auto Skill Tree Upgrades", Side = "Right" })
+    for cat in pairs(autoUpgrade) do UpgradeSection:Toggle({ Text = "Auto Upgrade " .. cat, Callback = function(b) autoUpgrade[cat] = b end }) end
 
-    -- Auto Skill Tree Upgrades on the RIGHT side
-    local UpgradeSection = Tab:Section({ 
-        Text = "Auto Skill Tree Upgrades",
-        Side = "Right"   -- <-- This puts it next to Farming Features
-    })
-
-    UpgradeSection:Toggle({ Text = "Auto Upgrade Root", Callback = function(b) autoUpgrade.Root = b end })
-    UpgradeSection:Toggle({ Text = "Auto Upgrade Buckets", Callback = function(b) autoUpgrade.Buckets = b end })
-    UpgradeSection:Toggle({ Text = "Auto Upgrade Character", Callback = function(b) autoUpgrade.Character = b end })
-    UpgradeSection:Toggle({ Text = "Auto Upgrade Diamonds", Callback = function(b) autoUpgrade.Diamonds = b end })
-    UpgradeSection:Toggle({ Text = "Auto Upgrade Survival", Callback = function(b) autoUpgrade.Survival = b end })
-    UpgradeSection:Toggle({ Text = "Auto Upgrade Treasure", Callback = function(b) autoUpgrade.Treasure = b end })
-
-    -- Non-Stop Sequential Auto Upgrade (unchanged)
     task.spawn(function()
         while true do
-            if not isSpawn then
-                for category, enabled in pairs(autoUpgrade) do
-                    if enabled then
-                        local catLower = string.lower(category)
-                        local nodes = {
-                            root = {{0,0},{1,-1},{1,-2},{0,-2},{1,-3},{0,-3},{-1,-1},{-1,-2},{2,-3},{2,-4},{-1,1},{-2,1},{-2,2},{-3,1},{-3,2},{-2,3},{-3,3},{-4,2},{-4,3}},
-                            buckets = {{1,0},{2,0},{2,-1},{1,-1},{2,-2},{3,-1},{3,-2},{3,0},{4,-1},{3,-3},{4,-2},{0,1},{-1,1},{0,2},{-1,2},{1,1},{0,3},{-1,3},{1,2},{1,3},{0,-1},{-1,0}},
-                            character = {{-1,0},{-2,1},{-2,0},{-1,1},{-2,2},{-1,-1},{-3,2},{1,-1},{0,-1},{2,-2},{2,-1},{1,-2},{0,-2},{1,0},{0,1},{2,0},{1,1},{0,2},{-1,2},{1,2},{2,2},{1,3}},
-                            diamonds = {{0,-1},{0,-2},{-1,-2},{1,-3},{-1,-3},{1,-4},{1,-5}},
-                            survival = {{0,-1},{0,-2},{1,-3}},
-                            treasure = {{0,-1},{0,-2},{-1,-2},{1,-1},{2,-2},{3,-3}}
-                        }
-
-                        for _, coord in ipairs(nodes[catLower] or {}) do
-                            local q, r = coord[1], coord[2]
-
-                            local success, result = pcall(function()
-                                return PurchaseRemote:InvokeServer(catLower, q, r)
-                            end)
-
-                            if success and result and result.ok == true then
-                                print(`✅ Bought {catLower} {q},{r}`)
-                            end
-
-                            task.wait(0.08)
-                        end
+            for category, enabled in pairs(autoUpgrade) do
+                if enabled then
+                    local catLower = string.lower(category)
+                    local nodes = { root = {{0,0},{1,-1},{1,-2},{0,-2},{1,-3},{0,-3},{-1,-1},{-1,-2},{2,-3},{2,-4},{-1,1},{-2,1},{-2,2},{-3,1},{-3,2},{-2,3},{-3,3},{-4,2},{-4,3}}, buckets = {{1,0},{2,0},{2,-1},{1,-1},{2,-2},{3,-1},{3,-2},{3,0},{4,-1},{3,-3},{4,-2},{0,1},{-1,1},{0,2},{-1,2},{1,1},{0,3},{-1,3},{1,2},{1,3},{0,-1},{-1,0}}, character = {{-1,0},{-2,1},{-2,0},{-1,1},{-2,2},{-1,-1},{-3,2},{1,-1},{0,-1},{2,-2},{2,-1},{1,-2},{0,-2},{1,0},{0,1},{2,0},{1,1},{0,2},{-1,2},{1,2},{2,2},{1,3}}, diamonds = {{0,-1},{0,-2},{-1,-2},{1,-3},{-1,-3},{1,-4},{1,-5}}, survival = {{0,-1},{0,-2},{1,-3}}, treasure = {{0,-1},{0,-2},{-1,-2},{1,-1},{2,-2},{3,-3}} }
+                    for _, coord in ipairs(nodes[catLower] or {}) do
+                        pcall(function() PurchaseRemote:InvokeServer(catLower, coord[1], coord[2]) end)
+                        task.wait(0.08)
                     end
                 end
             end
@@ -118,26 +112,176 @@ else
         end
     end)
 
-    -- Farming Loop (unchanged)
     task.spawn(function()
         while true do
             if autoFarmActive then
-                local BucketUsed = ReplicatedStorage.VerdantRemotes["VDT_Bucket.Used"]
-                BucketUsed:FireServer(workspace.Water.Top)
+                local Drain = workspace.Scripted.CheckpointParts["1"].Drain.Scripted.ProximityPosition.ProximityPrompt
+                ReplicatedStorage.VerdantRemotes["VDT_Bucket.Used"]:FireServer(workspace.Water.Top)
                 task.wait(delays.BucketUsed)
-                
-                local BucketPoured = ReplicatedStorage.VerdantRemotes["VDT_Bucket.Poured"]
-                BucketPoured:FireServer(workspace.Scripted.CheckpointParts["1"].Drain.Scripted.ProximityPosition.ProximityPrompt)
+                ReplicatedStorage.VerdantRemotes["VDT_Bucket.Poured"]:FireServer(Drain)
                 task.wait(delays.BucketPoured)
-                
-                local TokensTake = ReplicatedStorage.VerdantRemotes["VDT_Tokens.Take"]
-                TokensTake:FireServer(workspace.Scripted.CheckpointParts["1"].Drain.Scripted.ProximityPosition.ProximityPrompt)
+                ReplicatedStorage.VerdantRemotes["VDT_Tokens.Take"]:FireServer(Drain)
                 task.wait(delays.TokensTake)
-            else
-                task.wait(0.5)
-            end
+            else task.wait(0.5) end
         end
     end)
 end
+
+local MiscTab = Window:Tab({ Text = "Miscs" })
+local CharSection = MiscTab:Section({ Text = "Character Mods", Side = "Left" })
+local UtilSection = MiscTab:Section({ Text = "Utilities", Side = "Left" })
+local ChestSection = MiscTab:Section({ Text = "Chest Mods", Side = "Right" })
+
+CharSection:Toggle({ Text = "Infinite Stamina", Callback = function(enabled)
+    if staminaLoopConnection then staminaLoopConnection:Disconnect() staminaLoopConnection = nil end
+    if enabled then staminaLoopConnection = RunService.Heartbeat:Connect(function()
+        for _, module in pairs(getloadedmodules()) do
+            if module.Name == "SwimController" then local swim = require(module) swim._swimMeter = swim._meterMax or 100 end
+        end
+    end) end
+end})
+
+CharSection:Toggle({ Text = "WalkSpeed Mod", Callback = function(b) charSettings.walkEnabled = b end })
+CharSection:Input({ Text = "Speed Value", Callback = function(t) charSettings.speed = tonumber(t) or 16 end })
+CharSection:Toggle({ Text = "JumpPower Mod", Callback = function(b) charSettings.jumpEnabled = b end })
+CharSection:Input({ Text = "Jump Value", Callback = function(t) charSettings.jump = tonumber(t) or 50 end })
+
+CharSection:Toggle({ Text = "Fly (Joystick Fixed)", Callback = function(b)
+    flyEnabled = b
+    local character = Players.LocalPlayer.Character
+    if not character then return end
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    local hum = character:WaitForChild("Humanoid")
+    if flyEnabled then
+        local bv = Instance.new("BodyVelocity")
+        bv.Name = "FlyVelocity"
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bv.MaxForce = Vector3.new(1/0, 1/0, 1/0)
+        bv.Parent = hrp
+        flyConnection = RunService.RenderStepped:Connect(function()
+            if not flyEnabled then return end
+            local cam = workspace.CurrentCamera.CFrame
+            local move = hum.MoveDirection
+            local camLook = Vector3.new(cam.LookVector.X, 0, cam.LookVector.Z).Unit
+            local camRight = Vector3.new(cam.RightVector.X, 0, cam.RightVector.Z).Unit
+            local velocity = ((camLook * move.Z) + (camRight * move.X)) * flySpeed
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) or (hum.Jump and hum.FloorMaterial ~= Enum.Material.Air) then 
+                velocity = velocity + Vector3.new(0, flySpeed, 0) 
+            end
+            bv.Velocity = velocity
+        end)
+    else
+        if hrp:FindFirstChild("FlyVelocity") then hrp.FlyVelocity:Destroy() end
+        if flyConnection then flyConnection:Disconnect() end
+    end
+end})
+CharSection:Input({ Text = "Flight Speed", Callback = function(t) flySpeed = tonumber(t) or 50 end })
+
+UtilSection:Toggle({ Text = "Low Gravity", Callback = function(b) 
+    if gravityConnection then gravityConnection:Disconnect() gravityConnection = nil end
+    if b then gravityConnection = RunService.Heartbeat:Connect(function() workspace.Gravity = 50 end)
+    else workspace.Gravity = 196.2 end
+end})
+
+UtilSection:Toggle({ Text = "Anti-AFK", Callback = function(state)
+    if state then
+        antiAfkConnection = Players.LocalPlayer.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+    elseif antiAfkConnection then
+        antiAfkConnection:Disconnect()
+        antiAfkConnection = nil
+    end
+end})
+
+RunService.Heartbeat:Connect(function()
+    local hum = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid")
+    if hum then
+        if charSettings.walkEnabled then hum.WalkSpeed = charSettings.speed end
+        if charSettings.jumpEnabled then hum.UseJumpPower = true; hum.JumpPower = charSettings.jump end
+    end
+end)
+
+if not isSpawn then
+    local function applyChams(model)
+        if not model:FindFirstChild("ChestHighlight") then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "ChestHighlight"
+            highlight.FillColor = Color3.fromRGB(255, 215, 0)
+            highlight.Adornee = model
+            highlight.Parent = model
+        end
+    end
+    ChestSection:Toggle({ Text = "Chest Chams", Callback = function(enabled)
+        local CF = workspace:FindFirstChild("Scripted") and workspace.Scripted:FindFirstChild("Chests")
+        if not CF then return end
+        for _, c in ipairs(CF:GetChildren()) do
+            if enabled then applyChams(c)
+            elseif c:FindFirstChild("ChestHighlight") then c.ChestHighlight:Destroy() end
+        end
+    end})
+    ChestSection:Button({ Text = "Collect All Chests", Callback = function()
+        local CF = workspace:FindFirstChild("Scripted") and workspace.Scripted:FindFirstChild("Chests")
+        local RP = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if CF and RP then
+            local sP = RP.CFrame
+            for _, c in ipairs(CF:GetChildren()) do
+                if c:FindFirstChild("Part") then
+                    RP.CFrame = c.Part.CFrame + Vector3.new(0, 3, 0)
+                    task.wait(0.3)
+                    pcall(function() ChestRemote:FireServer(c.Part) end)
+                end
+            end
+            RP.CFrame = sP
+        end
+    end})
+end
+
+local VisualTab = Window:Tab({ Text = "Visuals" })
+local WorldLeft = VisualTab:Section({ Text = "Atmosphere", Side = "Left" })
+local WorldRight = VisualTab:Section({ Text = "Rendering", Side = "Right" })
+local CCSection = VisualTab:Section({ Text = "Color Correction", Side = "Right" })
+
+WorldLeft:Toggle({ Text = "No Fog", Callback = function(b) Lighting.FogEnd = b and 100000 or 10000 end })
+WorldLeft:Toggle({ Text = "Full Bright", Callback = function(b) Lighting.Brightness = b and 2 or 1; Lighting.Ambient = b and Color3.new(1, 1, 1) or Color3.new(0, 0, 0) end })
+WorldLeft:Input({ Text = "Set Ambient (0-1)", Callback = function(t) Lighting.Ambient = Color3.new(tonumber(t) or 0, tonumber(t) or 0, tonumber(t) or 0) end })
+WorldRight:Toggle({ Text = "No Render (Disable 3D)", Callback = function(b) game:GetService("RunService"):Set3dRenderingEnabled(not b) end })
+WorldRight:Toggle({ Text = "Low GFX Mode (Neutral)", Callback = function(b)
+    Lighting.GlobalShadows = not b
+    Lighting.FogEnd = b and 0 or 10000
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") then
+            if b then
+                v.Material = Enum.Material.Plastic
+                v.Color = Color3.fromRGB(120, 120, 120)
+            end
+        elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+            v.Enabled = not b
+        end
+    end
+end})
+WorldRight:Input({ Text = "Set Time (0-24)", Callback = function(t) Lighting.TimeOfDay = (tonumber(t) or 12) .. ":00:00" end })
+
+CCSection:Input({ Text = "Saturation (-1 to 10)", Callback = function(t) CC.Saturation = tonumber(t) or 0 end })
+CCSection:Input({ Text = "Contrast (-1 to 1)", Callback = function(t) CC.Contrast = tonumber(t) or 0 end })
+CCSection:Input({ Text = "Brightness (-1 to 1)", Callback = function(t) CC.Brightness = tonumber(t) or 0 end })
+
+local SettingsTab = Window:Tab({ Text = "Settings" })
+local HopSection = SettingsTab:Section({ Text = "Server Hopping", Side = "Left" })
+HopSection:Button({ Text = "Copy JobID", Callback = function() setclipboard(game.JobId) end })
+HopSection:Button({ Text = "Random Server Hop", Callback = function() 
+    local success, result = pcall(function() 
+        return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?limit=100")).data 
+    end)
+    if success and result then
+        local server = result[math.random(1, #result)]
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, Players.LocalPlayer)
+    end
+end})
+HopSection:Input({ Text = "Paste JobID to Join", Callback = function(t) 
+    if t and t ~= "" then TeleportService:TeleportToPlaceInstance(game.PlaceId, t, Players.LocalPlayer) end
+end})
+HopSection:Button({ Text = "Rejoin Current Server", Callback = function() TeleportService:Teleport(game.PlaceId, Players.LocalPlayer) end })
 
 Tab:Select()
