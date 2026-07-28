@@ -1,0 +1,1030 @@
+local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
+local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
+
+local Options = Library.Options
+local Toggles = Library.Toggles
+
+Library.ForceCheckbox = false
+Library.ShowToggleFrameInKeybinds = true
+
+local LOBBY_PLACE_ID = 79546208627805
+local isInLobby = (game.PlaceId == LOBBY_PLACE_ID)
+
+local Window = Library:CreateWindow({
+	Title = "99 Nights in the Forest",
+	Footer = "version: 1.0",
+	Icon = 95816097006870,
+	NotifySide = "Right",
+	ShowCustomCursor = true,
+})
+
+local Tabs = {
+	Main = Window:AddTab("Main", "boxes"),
+	Auto = Window:AddTab("Auto", "zap"),
+	["Item TP/ESP"] = Window:AddTab("Item TP/ESP", "package"),
+	["Game TP"] = Window:AddTab("Game TP", "map-pin"),
+	["Mob TP"] = Window:AddTab("Mob TP", "users"),
+	Player = Window:AddTab("Player", "user"),
+	Visuals = Window:AddTab("Visuals", "eye"),
+	Misc = Window:AddTab("Misc", "command"),
+	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
+}
+
+-- === LOBBY UI & AUTO-START LOGIC ===
+if isInLobby then
+	local lobbyMain = Tabs.Main:AddLeftGroupbox("Auto Start Control", "zap")
+	local autoStartEnabled = false
+
+	lobbyMain:AddToggle("EnableAutoStart", {
+		Text = "Auto Start (Loop)",
+		Default = false,
+		Callback = function(val) autoStartEnabled = val end
+	})
+
+	coroutine.wrap(function()
+		local ReplicatedStorage = game:GetService("ReplicatedStorage")
+		local TeleportEvent = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("TeleportEvent")
+		
+		local function autoStart()
+			print("Initiating 99 Nights auto-start sequence...")
+			TeleportEvent:FireServer("Add", 1)
+			print("Step 1 complete: Add event fired.")
+			task.wait(0.8)
+			TeleportEvent:FireServer("Chosen", nil, 1, nil)
+			print("Step 2 complete: Chosen event fired.")
+		end
+
+		while true do
+			if autoStartEnabled and game.PlaceId == LOBBY_PLACE_ID then
+				pcall(autoStart)
+			end
+			task.wait(1)
+		end
+	end)()
+end
+
+local main = Tabs.Main:AddLeftGroupbox("Safe Zone & Kill Aura", "shield")
+local mainRight = Tabs.Main:AddRightGroupbox("Stronghold Status", "globe")
+
+local autofarmss = Tabs.Auto:AddLeftGroupbox("Campfire & Cook Automation", "cpu")
+local autofarmssRight = Tabs.Auto:AddRightGroupbox("Grind & Biofuel Automation", "cpu")
+
+local itemtp = Tabs["Item TP/ESP"]:AddLeftGroupbox("Item Utilities", "box")
+local itemtpRight = Tabs["Item TP/ESP"]:AddRightGroupbox("Bracket Teleports", "package")
+
+local gametp = Tabs["Game TP"]:AddLeftGroupbox("World Teleports", "map-pin")
+local charactertp = Tabs["Mob TP"]:AddLeftGroupbox("Mob Utilities", "user-check")
+local plr = Tabs.Player:AddLeftGroupbox("LocalPlayer Modifications", "sliders")
+local vis = Tabs.Visuals:AddLeftGroupbox("ESP & Visuals", "glasses")
+local misc = Tabs.Misc:AddLeftGroupbox("Utilities & Extra Scripts", "terminal")
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local safezoneBaseplates = {}
+local baseplateSize = Vector3.new(2048, 1, 2048)
+local baseY = 100
+local centerPos = Vector3.new(0, baseY, 0)
+
+for dx = -1, 1 do
+	for dz = -1, 1 do
+		local pos = centerPos + Vector3.new(dx * baseplateSize.X, 0, dz * baseplateSize.Z)
+		local baseplate = Instance.new("Part")
+		baseplate.Name = "SafeZoneBaseplate"
+		baseplate.Size = baseplateSize
+		baseplate.Position = pos
+		baseplate.Anchored = true
+		baseplate.CanCollide = true
+		baseplate.Transparency = 1
+		baseplate.Color = Color3.fromRGB(255, 255, 255)
+		baseplate.Parent = workspace
+		table.insert(safezoneBaseplates, baseplate)
+	end
+end
+
+main:AddToggle("ShowSafeZone", {
+	Text = "Show Safe Zone",
+	Default = false,
+	Callback = function(enabled)
+		for _, baseplate in ipairs(safezoneBaseplates) do
+			baseplate.Transparency = enabled and 0.8 or 1
+			baseplate.CanCollide = enabled
+		end
+	end,
+})
+
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+
+local killAuraToggle = false
+local radius = 200
+
+local toolsDamageIDs = {
+	["Old Axe"] = "1_8982038982",
+	["Good Axe"] = "112_8982038982",
+	["Strong Axe"] = "116_8982038982",
+	["Chainsaw"] = "647_8992824875",
+	["Spear"] = "196_8999010016"
+}
+
+local function getAnyToolWithDamageID()
+	for toolName, damageID in pairs(toolsDamageIDs) do
+		local tool = player.Inventory:FindFirstChild(toolName)
+		if tool then
+			return tool, damageID
+		end
+	end
+	return nil, nil
+end
+
+local function equipTool(tool)
+	if tool then
+		RemoteEvents.EquipItemHandle:FireServer("FireAllClients", tool)
+	end
+end
+
+local function unequipTool(tool)
+	if tool then
+		RemoteEvents.UnequipItemHandle:FireServer("FireAllClients", tool)
+	end
+end
+
+local function killAuraLoop()
+	while killAuraToggle do
+		local character = player.Character or player.CharacterAdded:Wait()
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local tool, damageID = getAnyToolWithDamageID()
+			if tool and damageID then
+				equipTool(tool)
+
+				for _, mob in ipairs(Workspace.Characters:GetChildren()) do
+					if mob:IsA("Model") then
+						local part = mob:FindFirstChildWhichIsA("BasePart")
+						if part and (part.Position - hrp.Position).Magnitude <= radius then
+							pcall(function()
+								RemoteEvents.ToolDamageObject:InvokeServer(
+									mob,
+									tool,
+									damageID,
+									CFrame.new(part.Position)
+								)
+							end)
+						end
+					end
+				end
+
+				task.wait(0.1)
+			else
+				task.wait(1)
+			end
+		else
+			task.wait(0.5)
+		end
+	end
+end
+
+main:AddToggle("KillAuraToggle", {
+	Text = "Kill Aura",
+	Default = false,
+	Callback = function(state)
+		killAuraToggle = state
+		if state then
+			task.spawn(killAuraLoop)
+		else
+			local tool, _ = getAnyToolWithDamageID()
+			unequipTool(tool)
+		end
+	end,
+})
+
+main:AddSlider("KillAuraRadius", {
+	Text = "Kill Aura Radius",
+	Default = 200,
+	Min = 20,
+	Max = 500,
+	Rounding = 0,
+	Callback = function(value)
+		radius = math.clamp(value, 20, 500)
+	end,
+})
+
+local strongholdRunning = true
+
+local function getStrongholdTimerLabel()
+	return workspace:FindFirstChild("Map")
+		and workspace.Map:FindFirstChild("Landmarks")
+		and workspace.Map.Landmarks:FindFirstChild("Stronghold")
+		and workspace.Map.Landmarks.Stronghold:FindFirstChild("Functional")
+		and workspace.Map.Landmarks.Stronghold.Functional:FindFirstChild("Sign")
+		and workspace.Map.Landmarks.Stronghold.Functional.Sign:FindFirstChild("SurfaceGui")
+		and workspace.Map.Landmarks.Stronghold.Functional.Sign.SurfaceGui:FindFirstChild("Frame")
+		and workspace.Map.Landmarks.Stronghold.Functional.Sign.SurfaceGui.Frame:FindFirstChild("Body")
+end
+
+local initialLabel = getStrongholdTimerLabel()
+local initialText = "Stronghold Timer: " .. tostring(initialLabel and initialLabel.ContentText or "N/A")
+
+mainRight:AddLabel(initialText, true, "StrongholdTimerLabel")
+
+coroutine.wrap(function()
+	local lastTimerText = nil
+	while strongholdRunning do
+		local label = getStrongholdTimerLabel()
+		local timerText = "Stronghold Timer: " .. tostring(label and label.ContentText or "N/A")
+
+		if timerText ~= lastTimerText then
+			if Options.StrongholdTimerLabel then
+				Options.StrongholdTimerLabel:SetText(timerText)
+			end
+			lastTimerText = timerText
+		end
+
+		task.wait(0.5)
+	end
+end)()
+
+mainRight:AddButton({
+	Text = "Teleport to Stronghold",
+	Func = function()
+		local targetPart = workspace:FindFirstChild("Map")
+			and workspace.Map:FindFirstChild("Landmarks")
+			and workspace.Map.Landmarks:FindFirstChild("Stronghold")
+			and workspace.Map.Landmarks.Stronghold:FindFirstChild("Functional")
+			and workspace.Map.Landmarks.Stronghold.Functional:FindFirstChild("EntryDoors")
+			and workspace.Map.Landmarks.Stronghold.Functional.EntryDoors:FindFirstChild("DoorRight")
+			and workspace.Map.Landmarks.Stronghold.Functional.EntryDoors.DoorRight:FindFirstChild("Model")
+
+		if targetPart then
+			local children = targetPart:GetChildren()
+			local destination = children[5]
+
+			if destination and destination:IsA("BasePart") then
+				local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+				if hrp then
+					hrp.CFrame = destination.CFrame + Vector3.new(0, 5, 0)
+				end
+			end
+		end
+	end
+})
+
+mainRight:AddButton({
+	Text = "Teleport to Diamond Chest",
+	Func = function()
+		local items = workspace:FindFirstChild("Items")
+		if not items then return end
+
+		local chest = items:FindFirstChild("Stronghold Diamond Chest")
+		if not chest then return end
+
+		local chestLid = chest:FindFirstChild("ChestLid")
+		if not chestLid then return end
+
+		local diamondchest = chestLid:FindFirstChild("Meshes/diamondchest_Cube.002")
+		if not diamondchest then return end
+
+		local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			hrp.CFrame = diamondchest.CFrame + Vector3.new(0, 5, 0)
+		end
+	end
+})
+
+local function stringToCFrame(str)
+	local x, y, z = str:match("([^,]+),%s*([^,]+),%s*([^,]+)")
+	return CFrame.new(tonumber(x), tonumber(y), tonumber(z))
+end
+
+local function teleportToTarget(cf, duration)
+	local char = game.Players.LocalPlayer.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	if duration and duration > 0 then
+		local ts = game:GetService("TweenService")
+		local info = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+		local goal = { CFrame = cf }
+		local tween = ts:Create(hrp, info, goal)
+		tween:Play()
+	else
+		hrp.CFrame = cf
+	end
+end
+
+local storyCoords = {
+	{ "[campsite] camp site", "0, 8, -0"},
+	{ "[safezone] safe zone", "0, 110, -0" }
+}
+
+local storyButtonValues = {}
+for _, entry in ipairs(storyCoords) do
+	table.insert(storyButtonValues, entry[1])
+end
+
+gametp:AddDropdown("GameTeleports", {
+	Values = storyButtonValues,
+	Default = 1,
+	Text = "Teleports",
+	Callback = function(Value)
+		for _, entry in ipairs(storyCoords) do
+			if entry[1] == Value then
+				teleportToTarget(stringToCFrame(entry[2]), 0.1)
+				break
+			end
+		end
+	end,
+})
+
+itemtp:AddToggle("ItemESP", {
+	Text = "Item ESP",
+	Default = false,
+	Callback = function(state)
+		local itemFolder = workspace:FindFirstChild("Items")
+		if not itemFolder then return end
+
+		local itemNames = {
+			["Revolver"] = true, ["Oil Barrel"] = true, ["Chainsaw"] = true, ["Giant Sack"] = true, ["Bunny Foot"] = true, ["MedKit"] = true, ["Alien Chest"] = true, ["Berry"] = true,
+			["Bolt"] = true, ["Broken Fan"] = true, ["Carrot"] = true, ["Coal"] = true,
+			["Coin Stack"] = true, ["Hologram Emitter"] = true, ["Item Chest"] = true,
+			["Laser Fence Blueprint"] = true, ["Log"] = true, ["Old Flashlight"] = true,
+			["Old Radio"] = true, ["Sheet Metal"] = true, ["Bandage"] = true, ["Rifle"] = true
+		}
+
+		local function createESP(model)
+			if not model:IsA("Model") or not itemNames[model.Name] then return end
+			if not model.PrimaryPart or model:FindFirstChild("ESP") then return end
+
+			local billboard = Instance.new("BillboardGui")
+			billboard.Name = "ESP"
+			billboard.Size = UDim2.new(0, 100, 0, 30)
+			billboard.Adornee = model.PrimaryPart
+			billboard.AlwaysOnTop = true
+			billboard.StudsOffset = Vector3.new(0, 3, 0)
+		
+			local customFont = Font.new("rbxassetid://16658246179", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+			local label = Instance.new("TextLabel")
+			
+			label.Size = UDim2.new(1, 0, 1, 0)
+			label.TextSize = 17
+			label.BackgroundTransparency = 1
+			label.TextColor3 = Color3.new(1, 1, 1)
+			label.TextStrokeTransparency = 0.5
+			label.TextScaled = false
+			label.FontFace = customFont
+			label.Text = model.Name
+			
+			label.Parent = billboard
+			billboard.Parent = model
+		end
+
+		local function removeAllESP()
+			for _, model in ipairs(itemFolder:GetChildren()) do
+				local esp = model:FindFirstChild("ESP")
+				if esp then esp:Destroy() end
+			end
+		end
+
+		if state then
+			for _, model in ipairs(itemFolder:GetChildren()) do
+				createESP(model)
+			end
+		else
+			removeAllESP()
+		end
+	end,
+})
+
+local itemFolder = workspace:WaitForChild("Items")
+local itemNamesList = {
+	"Revolver", "Medkit", "Alien Chest", "Berry", "Bolt", "Broken Fan",
+	"Carrot", "Coal", "Coin Stack", "Hologram Emitter", "Item Chest",
+	"Laser Fence Blueprint", "Log", "Old Flashlight", "Old Radio",
+	"Sheet Metal", "Bandage", "Rifle"
+}
+
+local function getModelPart(model)
+	if model.PrimaryPart then
+		return model.PrimaryPart
+	end
+	for _, part in pairs(model:GetChildren()) do
+		if part:IsA("BasePart") then
+			return part
+		end
+	end
+	return nil
+end
+
+itemtp:AddDropdown("TeleportToItemDropdown", {
+	Values = itemNamesList,
+	Default = 1,
+	Text = "Teleport to Item",
+	Callback = function(itemName)
+		local candidates = {}
+		for _, model in pairs(itemFolder:GetChildren()) do
+			if model:IsA("Model") and model.Name == itemName then
+				local part = getModelPart(model)
+				if part then
+					table.insert(candidates, part)
+				end
+			end
+		end
+
+		if #candidates == 0 then return end
+
+		local targetPart = candidates[math.random(1, #candidates)]
+		local character = player.Character
+		if character then
+			local hrp = character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				hrp.CFrame = targetPart.CFrame + Vector3.new(0, 5, 0)
+			end
+		end
+	end,
+})
+
+local possibleItems = {
+	"Alien Chest", "Alpha Wolf Pelt", "Anvil Front", "Anvil Back", "Apple", "Bandage", "Bear Corpse", "Bear Pelt", "Berry", "Biofuel", "Bolt", "Broken Fan", "Bunny Foot", "Carrot", "Coal", "Coin Stack", "Cooked Morsel", "Cooked Steak", "Chainsaw", "Cultist", "Cultist Gem", "Flower", "Fuel Canister", "Hologram Emitter", "Item Chest", "Laser Fence Blueprint", "Leather Body", "Iron Body", "Thorn Body", "Log", "MedKit", "Morsel", "Old Flashlight", "Old Radio", "Good Sack", "Good Axe", "Raygun", "Giant Sack", "Strong Axe", "Oil Barrel", "Old Car Engine", "Rifle", "Rifle Ammo", "Revolver", "Revolver Ammo", "Sapling", "Sheet Metal", "Steak", "Wolf Pelt", "Gem of the Forest Fragment", "Tyre", "Washing Machine", "Broken Microwave"
+}
+
+itemtp:AddDropdown("TeleportItemBulk", {
+	Values = possibleItems,
+	Default = 1,
+	Text = "Teleport Item (Bulk)",
+	Callback = function(itemName)
+		local character = player.Character
+		if not character then return end
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then return end
+
+		local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+		local sources = { itemFolder, ReplicatedStorage:WaitForChild("TempStorage") }
+		local stackOffsetY = 2
+		local count = 0
+
+		for _, source in ipairs(sources) do
+			for _, item in ipairs(source:GetChildren()) do
+				if item.Name == itemName then
+					local targetPart = nil
+					for _, child in ipairs(item:GetDescendants()) do
+						if child:IsA("MeshPart") or child:IsA("Part") or child:IsA("UnionOperation") then
+							targetPart = child
+							break
+						end
+					end
+
+					if targetPart then
+						remoteEvents.RequestStartDraggingItem:FireServer(item)
+						targetPart.CFrame = rootPart.CFrame + Vector3.new(0, count * stackOffsetY, 0)
+						remoteEvents.StopDraggingItem:FireServer(item)
+						count = count + 1
+					end
+				end
+			end
+		end
+	end,
+})
+
+local bracket = {
+	weapons = { "Laser Sword", "Raygun", "Kunai", "Katana", "Spear" },
+	minifoods = { "Apple", "Berry", "Carrot" },
+	meat = { "Steak", "Cooked Steak", "Cooked Morsel", "Morsel" },
+	armor = { "Leather Body", "Iron Body", "Thorn Body" },
+	guns_ammo = { "Rifle", "Revolver", "Raygun", "Tactical Shotgun", "Revolver Ammo", "Rifle Ammo" },
+	materials = { "Log", "Coal", "Fuel Canister", "UFO Junk", "UFO Component", "Bandage", "MedKit", "Old Car Engine", "Broken Fan", "Old Microwave", "Old Radio", "Sheet Metal" },
+	pelts = { "Alpha Wolf Pelt", "Bear Pelt", "Wolf Pelt", "Bunny Foot" },
+	misc_tools = { "Good Sack", "Old Flashlight", "Old Radio", "Giant Sack", "Strong Flashlight", "Chainsaw" }
+}
+
+for groupName, itemList in pairs(bracket) do
+	local label = groupName:gsub("_", " "):gsub("/", "/")
+	itemtpRight:AddDropdown("Bracket_" .. groupName, {
+		Values = itemList,
+		Default = 1,
+		Text = label,
+		Callback = function(itemName)
+			local character = player.Character
+			if not character then return end
+			local rootPart = character:FindFirstChild("HumanoidRootPart")
+			if not rootPart then return end
+
+			local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+			local count = 0
+
+			for _, item in ipairs(itemFolder:GetChildren()) do
+				if item.Name == itemName then
+					local targetPart = nil
+					for _, descendant in ipairs(item:GetDescendants()) do
+						if descendant:IsA("BasePart") then
+							targetPart = descendant
+							break
+						end
+					end
+					if targetPart then
+						remoteEvents.RequestStartDraggingItem:FireServer(item)
+						targetPart.CFrame = rootPart.CFrame + Vector3.new(0, count * 2, 0)
+						remoteEvents.StopDraggingItem:FireServer(item)
+						count = count + 1
+					end
+				end
+			end
+		end,
+	})
+end
+
+local possibleCharacters = {
+	"Alpha Wolf", "Bear", "Lost Child", "Lost Child2", "Lost Child3", "Lost Child4", "Wolf", "Bunny", "Cultist", "Alien"
+}
+
+charactertp:AddDropdown("TeleportMobDropdown", {
+	Values = possibleCharacters,
+	Default = 1,
+	Text = "Teleport Mob",
+	Callback = function(characterName)
+		local character = player.Character
+		if not character then return end
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then return end
+
+		local characterFolder = workspace:WaitForChild("Characters")
+		local count = 0
+
+		for _, model in ipairs(characterFolder:GetChildren()) do
+			if model.Name == characterName then
+				local mainPart = model.PrimaryPart
+				if not mainPart then
+					for _, part in ipairs(model:GetDescendants()) do
+						if part:IsA("BasePart") then
+							mainPart = part
+							break
+						end
+					end
+				end
+
+				if mainPart then
+					local targetCFrame = rootPart.CFrame + Vector3.new(0, count * 3, 0)
+					if model.PrimaryPart then
+						model:SetPrimaryPartCFrame(targetCFrame)
+					else
+						mainPart.CFrame = targetCFrame
+					end
+					count = count + 1
+				end
+			end
+		end
+	end,
+})
+
+plr:AddSlider("JumpPowerSlider", {
+	Text = "JumpPower",
+	Default = 50,
+	Min = 50,
+	Max = 700,
+	Rounding = 0,
+	Callback = function(value)
+		local char = player.Character
+		if char and char:FindFirstChild("Humanoid") then
+			char.Humanoid.JumpPower = value
+		end
+	end,
+})
+
+plr:AddSlider("WalkSpeedSlider", {
+	Text = "WalkSpeed",
+	Default = 16,
+	Min = 16,
+	Max = 700,
+	Rounding = 0,
+	Callback = function(value)
+		_G.HackedWalkSpeed = value
+		local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = value
+		end
+	end,
+})
+
+plr:AddToggle("WalkSpeedToggle50", {
+	Text = "Walkspeed toggle (50)",
+	Default = false,
+	Callback = function(toggle)
+		_G.HackedWalkSpeed = toggle and 50 or 16
+		local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = _G.HackedWalkSpeed
+		end
+	end,
+})
+
+local ESPEnabled = false
+local ChamsEnabled = false
+local BillboardESPs = {}
+local ChamsESPs = {}
+local CoreGui = game:GetService("CoreGui")
+
+local function createBillboardESP(plrObj)
+	if BillboardESPs[plrObj] or plrObj == player then return end
+	if not plrObj.Character or not plrObj.Character:FindFirstChild("Head") then return end
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Billboard_ESP"
+	gui.Adornee = plrObj.Character.Head
+	gui.Parent = plrObj.Character.Head
+	gui.Size = UDim2.new(0, 100, 0, 40)
+	gui.AlwaysOnTop = true
+	gui.StudsOffset = Vector3.new(0, 2, 0)
+
+	local label = Instance.new("TextLabel", gui)
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextStrokeTransparency = 0.5
+	label.TextScaled = true
+
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		if not plrObj.Character or not plrObj.Character:FindFirstChild("Humanoid") then
+			gui:Destroy()
+			if conn then conn:Disconnect() end
+			BillboardESPs[plrObj] = nil
+			return
+		end
+		local hp = math.floor(plrObj.Character.Humanoid.Health / plrObj.Character.Humanoid.MaxHealth * 100)
+		label.Text = plrObj.Name .. " | " .. hp .. "%"
+	end)
+
+	BillboardESPs[plrObj] = gui
+end
+
+local function createChamsESP(plrObj)
+	if ChamsESPs[plrObj] or plrObj == player then return end
+	if not plrObj.Character or not plrObj.Character:FindFirstChild("HumanoidRootPart") then return end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "Chams_ESP"
+	folder.Parent = CoreGui
+	ChamsESPs[plrObj] = folder
+
+	for _, part in pairs(plrObj.Character:GetChildren()) do
+		if part:IsA("BasePart") then
+			local box = Instance.new("BoxHandleAdornment")
+			box.Name = "Cham_" .. plrObj.Name
+			box.Adornee = part
+			box.AlwaysOnTop = true
+			box.ZIndex = 10
+			box.Size = part.Size
+			box.Transparency = 0.4
+			box.Color = BrickColor.new("Bright red")
+			box.Parent = folder
+		end
+	end
+end
+
+vis:AddToggle("PlayerESP", {
+	Text = "ESP",
+	Default = false,
+	Callback = function(state)
+		ESPEnabled = state
+		if not state then
+			for _, gui in pairs(BillboardESPs) do if gui then gui:Destroy() end end
+			BillboardESPs = {}
+		else
+			for _, p in pairs(Players:GetPlayers()) do
+				if p ~= player then createBillboardESP(p) end
+			end
+		end
+	end,
+})
+
+vis:AddToggle("PlayerChams", {
+	Text = "Chams",
+	Default = false,
+	Callback = function(state)
+		ChamsEnabled = state
+		if not state then
+			for _, folder in pairs(ChamsESPs) do if folder then folder:Destroy() end end
+			ChamsESPs = {}
+		else
+			for _, p in pairs(Players:GetPlayers()) do
+				if p ~= player then createChamsESP(p) end
+			end
+		end
+	end,
+})
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Transparency = 1
+FOVCircle.Thickness = 1
+FOVCircle.Filled = false
+FOVCircle.ZIndex = 2
+
+RunService.RenderStepped:Connect(function()
+	if FOVCircle.Visible then
+		FOVCircle.Radius = 100
+		FOVCircle.Position = game:GetService("UserInputService"):GetMouseLocation()
+	end
+end)
+
+vis:AddToggle("FOVCircleToggle", {
+	Text = "FOV Circle",
+	Default = false,
+	Callback = function(state)
+		FOVCircle.Visible = state
+	end,
+})
+
+misc:AddButton({
+	Text = "infinite yield",
+	Func = function()
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+	end
+})
+
+misc:AddButton({
+	Text = "emote gui",
+	Func = function()
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/dimension-sources/random-scripts-i-found/refs/heads/main/r6%20animations"))()
+	end
+})
+
+misc:AddButton({
+	Text = "anti afk",
+	Func = function()
+		task.wait(0.5)
+		local ba = Instance.new("ScreenGui")
+		local ca = Instance.new("TextLabel")
+		local da = Instance.new("Frame")
+		local _b = Instance.new("TextLabel")
+		local ab = Instance.new("TextLabel")
+		ba.Parent = game.CoreGui
+		ba.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		ca.Parent = ba
+		ca.Active = true
+		ca.BackgroundColor3 = Color3.new(0.176471, 0.176471, 0.176471)
+		ca.Draggable = true
+		ca.Position = UDim2.new(0.698610067, 0, 0.098096624, 0)
+		ca.Size = UDim2.new(0, 370, 0, 52)
+		ca.Font = Enum.Font.SourceSansSemibold
+		ca.Text = "anti afk"
+		ca.TextColor3 = Color3.new(0, 1, 1)
+		ca.TextSize = 22
+		da.Parent = ca
+		da.BackgroundColor3 = Color3.new(0.196078, 0.196078, 0.196078)
+		da.Position = UDim2.new(0, 0, 1.0192306, 0)
+		da.Size = UDim2.new(0, 370, 0, 107)
+		_b.Parent = da
+		_b.BackgroundColor3 = Color3.new(0.176471, 0.176471, 0.176471)
+		_b.Position = UDim2.new(0, 0, 0.800455689, 0)
+		_b.Size = UDim2.new(0, 370, 0, 21)
+		_b.Font = Enum.Font.Arial
+		_b.Text = "anti afk"
+		_b.TextColor3 = Color3.new(0, 1, 1)
+		_b.TextSize = 20
+		ab.Parent = da
+		ab.BackgroundColor3 = Color3.new(0.176471, 0.176471, 0.176471)
+		ab.Position = UDim2.new(0, 0, 0.158377, 0)
+		ab.Size = UDim2.new(0, 370, 0, 44)
+		ab.Font = Enum.Font.ArialBold
+		ab.Text = "status: active"
+		ab.TextColor3 = Color3.new(0, 1, 1)
+		ab.TextSize = 20
+		local bb = game:service'VirtualUser'
+		game:service'Players'.LocalPlayer.Idled:connect(function()
+			bb:CaptureController()
+			bb:ClickButton2(Vector2.new())
+			ab.Text = "roblox tried to kick you but failed to do so!"
+			task.wait(2)
+			ab.Text = "status : active"
+		end)
+	end
+})
+
+misc:AddButton({
+	Text = "turtle spy",
+	Func = function()
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/Turtle-Brand/Turtle-Spy/main/source.lua", true))()
+	end
+})
+
+local campfireFuelItems = {"Log", "Coal", "Fuel Canister", "Oil Barrel", "Biofuel"}
+local autocookItems = {"Morsel", "Steak"}
+local autoGrindItems = {"UFO Junk", "UFO Component", "Old Car Engine", "Broken Fan", "Old Microwave", "Bolt", "Log", "Cultist Gem", "Sheet Metal", "Old Radio", "Tyre", "Washing Machine", "Cultist Experiment", "Cultist Component", "Gem of the Forest Fragment"}
+local autoEatFoods = {"Cooked Steak", "Cooked Morsel", "Berry", "Carrot", "Apple"}
+local biofuelItems = {"Carrot", "Cooked Morsel", "Morsel", "Steak", "Cooked Steak", "Log"}
+
+local alwaysFeedEnabledItems = {}
+local autoCookEnabledItems = {}
+local autoGrindEnabledItems = {}
+local autoBiofuelEnabledItems = {}
+local autoEatEnabled = false
+local autoEatHPEnabled = false
+
+local campfireDropPos = Vector3.new(0, 19, 0)
+local machineDropPos = Vector3.new(21, 16, -5)
+local itemsFolder = Workspace:WaitForChild("Items")
+local remoteConsume = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("RequestConsumeItem")
+
+local function moveItemToPos(item, position)
+	if not item or not item:IsDescendantOf(workspace) then return end
+	local part = item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart") or item:FindFirstChild("Handle")
+	if not part then return end
+
+	if not item.PrimaryPart then
+		pcall(function() item.PrimaryPart = part end)
+	end
+
+	pcall(function()
+		RemoteEvents.RequestStartDraggingItem:FireServer(item)
+		task.wait(0.05)
+		item:SetPrimaryPartCFrame(CFrame.new(position))
+		task.wait(0.05)
+		RemoteEvents.StopDraggingItem:FireServer(item)
+	end)
+end
+
+for _, itemName in ipairs(campfireFuelItems) do
+	autofarmss:AddToggle("FeedCampfire_" .. itemName, {
+		Text = "Feed Campfire: " .. itemName,
+		Default = false,
+		Callback = function(val) alwaysFeedEnabledItems[itemName] = val end
+	})
+end
+
+for _, itemName in ipairs(autocookItems) do
+	autofarmss:AddToggle("AutoCook_" .. itemName, {
+		Text = "Auto Cook: " .. itemName,
+		Default = false,
+		Callback = function(val) autoCookEnabledItems[itemName] = val end
+	})
+end
+
+for _, itemName in ipairs(autoGrindItems) do
+	autofarmssRight:AddToggle("AutoGrind_" .. itemName, {
+		Text = "Auto Grind: " .. itemName,
+		Default = false,
+		Callback = function(val) autoGrindEnabledItems[itemName] = val end
+	})
+end
+
+for _, itemName in ipairs(biofuelItems) do
+	autofarmssRight:AddToggle("AutoBiofuel_" .. itemName, {
+		Text = "Auto Biofuel: " .. itemName,
+		Default = false,
+		Callback = function(val) autoBiofuelEnabledItems[itemName] = val end
+	})
+end
+
+autofarmssRight:AddToggle("EnableAutoEat", {
+	Text = "Auto Eat (3 sec interval)",
+	Default = false,
+	Callback = function(val) autoEatEnabled = val end
+})
+
+autofarmssRight:AddToggle("EnableAutoEatHP", {
+	Text = "Auto Eat (HP Bar Based)",
+	Default = false,
+	Callback = function(val) autoEatHPEnabled = val end
+})
+
+coroutine.wrap(function()
+	while true do
+		for itemName, enabled in pairs(alwaysFeedEnabledItems) do
+			if enabled then
+				for _, item in ipairs(itemsFolder:GetChildren()) do
+					if item.Name == itemName then
+						moveItemToPos(item, campfireDropPos)
+					end
+				end
+			end
+		end
+		task.wait(2)
+	end
+end)()
+
+coroutine.wrap(function()
+	while true do
+		for itemName, enabled in pairs(autoCookEnabledItems) do
+			if enabled then
+				for _, item in ipairs(itemsFolder:GetChildren()) do
+					if item.Name == itemName then
+						moveItemToPos(item, campfireDropPos)
+					end
+				end
+			end
+		end
+		task.wait(2.5)
+	end
+end)()
+
+coroutine.wrap(function()
+	while true do
+		for itemName, enabled in pairs(autoGrindEnabledItems) do
+			if enabled then
+				for _, item in ipairs(itemsFolder:GetChildren()) do
+					if item.Name == itemName then
+						moveItemToPos(item, machineDropPos)
+					end
+				end
+			end
+		end
+		task.wait(2.5)
+	end
+end)()
+
+coroutine.wrap(function()
+	while true do
+		if autoEatEnabled then
+			local available = {}
+			for _, item in ipairs(itemsFolder:GetChildren()) do
+				if table.find(autoEatFoods, item.Name) then
+					table.insert(available, item)
+				end
+			end
+			if #available > 0 then
+				local food = available[math.random(1, #available)]
+				pcall(function() remoteConsume:InvokeServer(food) end)
+			end
+		end
+		task.wait(3)
+	end
+end)()
+
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
+
+MenuGroup:AddToggle("KeybindMenuOpen", {
+	Default = Library.KeybindFrame.Visible,
+	Text = "Open Keybind Menu",
+	Callback = function(value)
+		Library.KeybindFrame.Visible = value
+	end,
+})
+
+MenuGroup:AddToggle("ShowCustomCursor", {
+	Text = "Custom Cursor",
+	Default = Library.ShowCustomCursor,
+	Callback = function(Value)
+		Library.ShowCustomCursor = Value
+	end,
+})
+
+MenuGroup:AddDropdown("NotificationSide", {
+	Values = { "Left", "Right" },
+	Default = "Right",
+	Text = "Notification Side",
+	Callback = function(Value)
+		Library:SetNotifySide(Value)
+	end,
+})
+
+MenuGroup:AddDropdown("DPIDropdown", {
+	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
+	Default = "100%",
+	Text = "DPI Scale",
+	Callback = function(Value)
+		Value = Value:gsub("%%", "")
+		local DPI = tonumber(Value)
+		Library:SetDPIScale(DPI)
+	end,
+})
+
+MenuGroup:AddSlider("UICornerSlider", {
+	Text = "Corner Radius",
+	Default = Library.CornerRadius,
+	Min = 0,
+	Max = 20,
+	Rounding = 0,
+	Callback = function(value)
+		Window:SetCornerRadius(value)
+	end
+})
+
+MenuGroup:AddDivider()
+MenuGroup:AddLabel("Menu bind")
+	:AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
+
+MenuGroup:AddButton("Unload", function()
+	Library:Unload()
+end)
+
+Library.ToggleKeybind = Options.MenuKeybind
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
+
+ThemeManager:SetFolder("99NightsForest")
+SaveManager:SetFolder("99NightsForest/main")
+
+SaveManager:BuildConfigSection(Tabs["UI Settings"])
+ThemeManager:ApplyToTab(Tabs["UI Settings"])
+
+SaveManager:LoadAutoloadConfig()
