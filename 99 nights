@@ -25,10 +25,7 @@ local Tabs = {
 	Auto = Window:AddTab("Auto", "zap"),
 	["Item TP/ESP"] = Window:AddTab("Item TP/ESP", "package"),
 	["Game TP"] = Window:AddTab("Game TP", "map-pin"),
-	["Mob TP"] = Window:AddTab("Mob TP", "users"),
 	Player = Window:AddTab("Player", "user"),
-	Visuals = Window:AddTab("Visuals", "eye"),
-	Misc = Window:AddTab("Misc", "command"),
 	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
@@ -75,10 +72,7 @@ local itemtp = Tabs["Item TP/ESP"]:AddLeftGroupbox("Item Utilities", "box")
 local itemtpRight = Tabs["Item TP/ESP"]:AddRightGroupbox("Bracket Teleports", "package")
 
 local gametp = Tabs["Game TP"]:AddLeftGroupbox("World Teleports", "map-pin")
-local charactertp = Tabs["Mob TP"]:AddLeftGroupbox("Mob Utilities", "user-check")
 local plr = Tabs.Player:AddLeftGroupbox("LocalPlayer Modifications", "sliders")
-local vis = Tabs.Visuals:AddLeftGroupbox("ESP & Visuals", "glasses")
-local misc = Tabs.Misc:AddLeftGroupbox("Utilities & Extra Scripts", "terminal")
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -537,49 +531,6 @@ for groupName, itemList in pairs(bracket) do
 	})
 end
 
-local possibleCharacters = {
-	"Alpha Wolf", "Bear", "Lost Child", "Lost Child2", "Lost Child3", "Lost Child4", "Wolf", "Bunny", "Cultist", "Alien"
-}
-
-charactertp:AddDropdown("TeleportMobDropdown", {
-	Values = possibleCharacters,
-	Default = 1,
-	Text = "Teleport Mob",
-	Callback = function(characterName)
-		local character = player.Character
-		if not character then return end
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		if not rootPart then return end
-
-		local characterFolder = workspace:WaitForChild("Characters")
-		local count = 0
-
-		for _, model in ipairs(characterFolder:GetChildren()) do
-			if model.Name == characterName then
-				local mainPart = model.PrimaryPart
-				if not mainPart then
-					for _, part in ipairs(model:GetDescendants()) do
-						if part:IsA("BasePart") then
-							mainPart = part
-							break
-						end
-					end
-				end
-
-				if mainPart then
-					local targetCFrame = rootPart.CFrame + Vector3.new(0, count * 3, 0)
-					if model.PrimaryPart then
-						model:SetPrimaryPartCFrame(targetCFrame)
-					else
-						mainPart.CFrame = targetCFrame
-					end
-					count = count + 1
-				end
-			end
-		end
-	end,
-})
-
 plr:AddSlider("JumpPowerSlider", {
 	Text = "JumpPower",
 	Default = 50,
@@ -619,198 +570,6 @@ plr:AddToggle("WalkSpeedToggle50", {
 			humanoid.WalkSpeed = _G.HackedWalkSpeed
 		end
 	end,
-})
-
-local ESPEnabled = false
-local ChamsEnabled = false
-local BillboardESPs = {}
-local ChamsESPs = {}
-local CoreGui = game:GetService("CoreGui")
-
-local function createBillboardESP(plrObj)
-	if BillboardESPs[plrObj] or plrObj == player then return end
-	if not plrObj.Character or not plrObj.Character:FindFirstChild("Head") then return end
-
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "Billboard_ESP"
-	gui.Adornee = plrObj.Character.Head
-	gui.Parent = plrObj.Character.Head
-	gui.Size = UDim2.new(0, 100, 0, 40)
-	gui.AlwaysOnTop = true
-	gui.StudsOffset = Vector3.new(0, 2, 0)
-
-	local label = Instance.new("TextLabel", gui)
-	label.Size = UDim2.new(1, 0, 1, 0)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.5
-	label.TextScaled = true
-
-	local conn
-	conn = RunService.RenderStepped:Connect(function()
-		if not plrObj.Character or not plrObj.Character:FindFirstChild("Humanoid") then
-			gui:Destroy()
-			if conn then conn:Disconnect() end
-			BillboardESPs[plrObj] = nil
-			return
-		end
-		local hp = math.floor(plrObj.Character.Humanoid.Health / plrObj.Character.Humanoid.MaxHealth * 100)
-		label.Text = plrObj.Name .. " | " .. hp .. "%"
-	end)
-
-	BillboardESPs[plrObj] = gui
-end
-
-local function createChamsESP(plrObj)
-	if ChamsESPs[plrObj] or plrObj == player then return end
-	if not plrObj.Character or not plrObj.Character:FindFirstChild("HumanoidRootPart") then return end
-
-	local folder = Instance.new("Folder")
-	folder.Name = "Chams_ESP"
-	folder.Parent = CoreGui
-	ChamsESPs[plrObj] = folder
-
-	for _, part in pairs(plrObj.Character:GetChildren()) do
-		if part:IsA("BasePart") then
-			local box = Instance.new("BoxHandleAdornment")
-			box.Name = "Cham_" .. plrObj.Name
-			box.Adornee = part
-			box.AlwaysOnTop = true
-			box.ZIndex = 10
-			box.Size = part.Size
-			box.Transparency = 0.4
-			box.Color = BrickColor.new("Bright red")
-			box.Parent = folder
-		end
-	end
-end
-
-vis:AddToggle("PlayerESP", {
-	Text = "ESP",
-	Default = false,
-	Callback = function(state)
-		ESPEnabled = state
-		if not state then
-			for _, gui in pairs(BillboardESPs) do if gui then gui:Destroy() end end
-			BillboardESPs = {}
-		else
-			for _, p in pairs(Players:GetPlayers()) do
-				if p ~= player then createBillboardESP(p) end
-			end
-		end
-	end,
-})
-
-vis:AddToggle("PlayerChams", {
-	Text = "Chams",
-	Default = false,
-	Callback = function(state)
-		ChamsEnabled = state
-		if not state then
-			for _, folder in pairs(ChamsESPs) do if folder then folder:Destroy() end end
-			ChamsESPs = {}
-		else
-			for _, p in pairs(Players:GetPlayers()) do
-				if p ~= player then createChamsESP(p) end
-			end
-		end
-	end,
-})
-
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Visible = false
-FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-FOVCircle.Transparency = 1
-FOVCircle.Thickness = 1
-FOVCircle.Filled = false
-FOVCircle.ZIndex = 2
-
-RunService.RenderStepped:Connect(function()
-	if FOVCircle.Visible then
-		FOVCircle.Radius = 100
-		FOVCircle.Position = game:GetService("UserInputService"):GetMouseLocation()
-	end
-end)
-
-vis:AddToggle("FOVCircleToggle", {
-	Text = "FOV Circle",
-	Default = false,
-	Callback = function(state)
-		FOVCircle.Visible = state
-	end,
-})
-
-misc:AddButton({
-	Text = "infinite yield",
-	Func = function()
-		loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-	end
-})
-
-misc:AddButton({
-	Text = "emote gui",
-	Func = function()
-		loadstring(game:HttpGet("https://raw.githubusercontent.com/dimension-sources/random-scripts-i-found/refs/heads/main/r6%20animations"))()
-	end
-})
-
-misc:AddButton({
-	Text = "anti afk",
-	Func = function()
-		task.wait(0.5)
-		local ba = Instance.new("ScreenGui")
-		local ca = Instance.new("TextLabel")
-		local da = Instance.new("Frame")
-		local _b = Instance.new("TextLabel")
-		local ab = Instance.new("TextLabel")
-		ba.Parent = game.CoreGui
-		ba.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		ca.Parent = ba
-		ca.Active = true
-		ca.BackgroundColor3 = Color3.new(0.176471, 0.176471, 0.176471)
-		ca.Draggable = true
-		ca.Position = UDim2.new(0.698610067, 0, 0.098096624, 0)
-		ca.Size = UDim2.new(0, 370, 0, 52)
-		ca.Font = Enum.Font.SourceSansSemibold
-		ca.Text = "anti afk"
-		ca.TextColor3 = Color3.new(0, 1, 1)
-		ca.TextSize = 22
-		da.Parent = ca
-		da.BackgroundColor3 = Color3.new(0.196078, 0.196078, 0.196078)
-		da.Position = UDim2.new(0, 0, 1.0192306, 0)
-		da.Size = UDim2.new(0, 370, 0, 107)
-		_b.Parent = da
-		_b.BackgroundColor3 = Color3.new(0.176471, 0.176471, 0.176471)
-		_b.Position = UDim2.new(0, 0, 0.800455689, 0)
-		_b.Size = UDim2.new(0, 370, 0, 21)
-		_b.Font = Enum.Font.Arial
-		_b.Text = "anti afk"
-		_b.TextColor3 = Color3.new(0, 1, 1)
-		_b.TextSize = 20
-		ab.Parent = da
-		ab.BackgroundColor3 = Color3.new(0.176471, 0.176471, 0.176471)
-		ab.Position = UDim2.new(0, 0, 0.158377, 0)
-		ab.Size = UDim2.new(0, 370, 0, 44)
-		ab.Font = Enum.Font.ArialBold
-		ab.Text = "status: active"
-		ab.TextColor3 = Color3.new(0, 1, 1)
-		ab.TextSize = 20
-		local bb = game:service'VirtualUser'
-		game:service'Players'.LocalPlayer.Idled:connect(function()
-			bb:CaptureController()
-			bb:ClickButton2(Vector2.new())
-			ab.Text = "roblox tried to kick you but failed to do so!"
-			task.wait(2)
-			ab.Text = "status : active"
-		end)
-	end
-})
-
-misc:AddButton({
-	Text = "turtle spy",
-	Func = function()
-		loadstring(game:HttpGet("https://raw.githubusercontent.com/Turtle-Brand/Turtle-Spy/main/source.lua", true))()
-	end
 })
 
 local campfireFuelItems = {"Log", "Coal", "Fuel Canister", "Oil Barrel", "Biofuel"}
