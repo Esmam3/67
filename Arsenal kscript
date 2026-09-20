@@ -1,0 +1,796 @@
+-- Kscript (Arsenal Edition)
+-- Kscript UI Library Version
+
+-- ===== GITHUB REPOSITORY LOADER =====
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/Angeli%20ui%20(1).txt"))()
+
+-- ===== SERVICES =====
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
+
+-- Mouse press/release fallback
+if not mouse1press or not mouse1release then
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    function mouse1press()
+        VirtualInputManager:SendMouseButtonEvent(0, 0, true, game, 1)
+    end
+    function mouse1release()
+        VirtualInputManager:SendMouseButtonEvent(0, 0, false, game, 1)
+    end
+end
+
+-- ===== HELPER FUNCTIONS =====
+local function getCharacter()
+    return LocalPlayer.Character
+end
+
+local function getHumanoid()
+    local char = getCharacter()
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function getHumanoidRootPart()
+    local char = getCharacter()
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+-- Keep track of local player life state
+local isAlive = true
+local function setupLifeTracking(char)
+    if not char then return end
+    local hum = char:WaitForChild("Humanoid", 3)
+    if hum then
+        isAlive = hum.Health > 0
+        hum.Died:Connect(function()
+            isAlive = false
+        end)
+    end
+end
+
+if LocalPlayer.Character then setupLifeTracking(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(function(char)
+    isAlive = true
+    setupLifeTracking(char)
+end)
+
+-- ======================================
+-- WINDOW & CATEGORY CREATION
+-- ======================================
+local Window = Library._new()
+
+-- Override hardcoded title label in the UI
+task.spawn(function()
+    task.wait(0.2)
+    for _, gui in ipairs({CoreGui, LocalPlayer:FindFirstChildOfClass("PlayerGui")}) do
+        if gui then
+            for _, v in ipairs(gui:GetDescendants()) do
+                if v:IsA("TextLabel") and v.Text == "Angeli" then
+                    v.Text = "Kscript"
+                end
+            end
+        end
+    end
+end)
+
+-- Main Category
+local MainCategory = Window:create_category("Kscript")
+
+-- Tabs
+local CombatTab = MainCategory:create_tab("Combat")
+local CharacterTab = MainCategory:create_tab("Character")
+local VisualsTab = MainCategory:create_tab("Visuals")
+local MiscTab = MainCategory:create_tab("Misc")
+local SettingsTab = MainCategory:create_tab("Settings")
+
+-- Groups
+local CombatLeft = CombatTab:create_group("Combat & Mods", "left")
+local CombatRight = CombatTab:create_group("Targeting & Firing", "right")
+
+local CharLeft = CharacterTab:create_group("Movement", "left")
+
+local VisLeft = VisualsTab:create_group("ESP & Charms", "left")
+local VisRight = VisualsTab:create_group("World Visuals", "right")
+
+local MiscLeft = MiscTab:create_group("Spoofers & Performance", "left")
+local SettingsLeft = SettingsTab:create_group("Utilities", "left")
+
+-- State storage
+local Options = {}
+
+-- ======================================
+-- COMBAT TAB
+-- ======================================
+
+--- Hitbox Expander ---
+Options.HitboxEnabled = false
+Options.HitboxSize = 21
+Options.HitboxTransparency = 60
+Options.HitboxTeam = "Team-Based"
+local hitboxData = {}
+local hitboxConnection = nil
+local hitboxParts = {"UpperTorso", "Head", "HumanoidRootPart"}
+
+local function savePartData(player, part)
+    if not hitboxData[player] then hitboxData[player] = {} end
+    if not hitboxData[player][part.Name] then
+        hitboxData[player][part.Name] = {
+            CanCollide = part.CanCollide,
+            Transparency = part.Transparency,
+            Size = part.Size
+        }
+    end
+end
+
+local function restorePlayer(player)
+    local data = hitboxData[player]
+    if data then
+        local char = player.Character
+        if char then
+            for name, props in pairs(data) do
+                local part = char:FindFirstChild(name)
+                if part and part:IsA("BasePart") then
+                    part.CanCollide = props.CanCollide
+                    part.Transparency = props.Transparency
+                    part.Size = props.Size
+                end
+            end
+        end
+        hitboxData[player] = nil
+    end
+end
+
+local function isTargetTeam(player)
+    if not player or not player.Team or not LocalPlayer.Team then return false end
+    local mode = Options.HitboxTeam
+    if mode == "FFA" or mode == "Everyone" then return true end
+    return player.Team ~= LocalPlayer.Team
+end
+
+local function updateHitboxes()
+    if not Options.HitboxEnabled then
+        for p in pairs(hitboxData) do restorePlayer(p) end
+        return
+    end
+    local size = Options.HitboxSize
+    local trans = (100 - Options.HitboxTransparency) / 100
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if isTargetTeam(player) and player.Character then
+                for _, partName in ipairs(hitboxParts) do
+                    local part = player.Character:FindFirstChild(partName)
+                    if part and part:IsA("BasePart") then
+                        savePartData(player, part)
+                        part.CanCollide = false
+                        part.Transparency = trans
+                        part.Size = Vector3.new(size, size, size)
+                    end
+                end
+            else
+                restorePlayer(player)
+            end
+        end
+    end
+end
+
+CombatLeft:create_toggle("HitboxEnabled", {
+    title = "Enable Hitbox Expander",
+    default = false,
+    callback = function(v)
+        Options.HitboxEnabled = v
+        if v then
+            if not hitboxConnection then
+                hitboxConnection = RunService.Heartbeat:Connect(updateHitboxes)
+            end
+        else
+            if hitboxConnection then
+                hitboxConnection:Disconnect()
+                hitboxConnection = nil
+            end
+            for p in pairs(hitboxData) do restorePlayer(p) end
+        end
+    end
+})
+
+CombatLeft:create_slider("HitboxSize", {
+    title = "Hitbox Size",
+    minimum = 1,
+    maximum = 30,
+    default = 21,
+    rounding = true,
+    callback = function(v) Options.HitboxSize = v end
+})
+
+CombatLeft:create_slider("HitboxTransparency", {
+    title = "Hitbox Visibility (%)",
+    minimum = 0,
+    maximum = 100,
+    default = 60,
+    rounding = true,
+    callback = function(v) Options.HitboxTransparency = v end
+})
+
+CombatLeft:create_dropdown("HitboxTeam", {
+    title = "Hitbox Team Mode",
+    options = {"FFA", "Team-Based", "Everyone"},
+    default = "Team-Based",
+    callback = function(v) Options.HitboxTeam = v end
+})
+
+--- Triggerbot ---
+Options.TriggerbotEnabled = false
+Options.TriggerbotDelay = 0
+
+local triggerbotConnection = nil
+local isMouseDown = false
+local lastShot = 0
+
+local function isTriggerTarget(player)
+    if not player or player == LocalPlayer then return false end
+    return isTargetTeam(player)
+end
+
+local function updateTriggerbot()
+    if not Options.TriggerbotEnabled or not isAlive then
+        if isMouseDown then
+            mouse1release()
+            isMouseDown = false
+        end
+        return
+    end
+
+    local now = tick()
+    local delaySeconds = Options.TriggerbotDelay / 1000
+    if now - lastShot < delaySeconds then return end
+
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    rayParams.FilterDescendantsInstances = {character, Camera}
+
+    local centerPoint = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local ray = Camera:ScreenPointToRay(centerPoint.X, centerPoint.Y)
+    local rayResult = Workspace:Raycast(ray.Origin, ray.Direction * 2000, rayParams)
+
+    local shouldShoot = false
+    if rayResult and rayResult.Instance then
+        local model = rayResult.Instance:FindFirstAncestorOfClass("Model")
+        if model and model:FindFirstChild("Humanoid") then
+            local player = Players:GetPlayerFromCharacter(model)
+            if player and isTriggerTarget(player) and not model:FindFirstChild("ForceField") then
+                shouldShoot = true
+            end
+        end
+    end
+
+    if shouldShoot then
+        if not isMouseDown then
+            mouse1press()
+            isMouseDown = true
+            lastShot = now
+        end
+    elseif isMouseDown then
+        mouse1release()
+        isMouseDown = false
+    end
+end
+
+CombatLeft:create_toggle("TriggerbotEnabled", {
+    title = "Enable Triggerbot",
+    default = false,
+    callback = function(v)
+        Options.TriggerbotEnabled = v
+        if v then
+            if not triggerbotConnection then
+                triggerbotConnection = RunService.RenderStepped:Connect(updateTriggerbot)
+            end
+        else
+            if triggerbotConnection then
+                triggerbotConnection:Disconnect()
+                triggerbotConnection = nil
+            end
+            if isMouseDown then
+                mouse1release()
+                isMouseDown = false
+            end
+        end
+    end
+})
+
+CombatLeft:create_slider("TriggerbotDelay", {
+    title = "Triggerbot Delay (ms)",
+    minimum = 0,
+    maximum = 1000,
+    default = 0,
+    rounding = true,
+    callback = function(v) Options.TriggerbotDelay = v end
+})
+
+--- Ammunition Mods ---
+CombatLeft:create_toggle("InfAmmoCurse", {
+    title = "Infinite Ammo (Curse)",
+    default = false,
+    callback = function(v)
+        pcall(function()
+            local wkspc = ReplicatedStorage:FindFirstChild("wkspc")
+            if wkspc and wkspc:FindFirstChild("CurrentCurse") then wkspc.CurrentCurse.Value = v and "Infinite Ammo" or "" end
+        end)
+    end
+})
+
+Options.InfAmmoOverride = false
+local ammoConnection = nil
+CombatLeft:create_toggle("InfAmmoOverride", {
+    title = "Infinite Ammo (Override)",
+    default = false,
+    callback = function(v)
+        Options.InfAmmoOverride = v
+        if v then
+            if not ammoConnection then
+                ammoConnection = RunService.Stepped:Connect(function()
+                    if Options.InfAmmoOverride then
+                        pcall(function()
+                            local gui = LocalPlayer.PlayerGui
+                            if gui and gui:FindFirstChild("GUI") and gui.GUI:FindFirstChild("Client") and gui.GUI.Client:FindFirstChild("Variables") then
+                                local vars = gui.GUI.Client.Variables
+                                if vars:FindFirstChild("ammocount") then vars.ammocount.Value = 99 end
+                                if vars:FindFirstChild("ammocount2") then vars.ammocount2.Value = 99 end
+                            end
+                        end)
+                    end
+                end)
+            end
+        else
+            if ammoConnection then
+                ammoConnection:Disconnect()
+                ammoConnection = nil
+            end
+        end
+    end
+})
+
+--- Arm Skins ---
+Options.ArmMaterial = "Plastic"
+Options.ArmColor = Color3.fromRGB(50, 50, 50)
+Options.ArmSkinEnabled = false
+local armConn = nil
+
+local function findArms()
+    local locations = { Workspace.Camera, LocalPlayer.Character, Workspace }
+    for _, parent in ipairs(locations) do
+        if parent then
+            local arms = parent:FindFirstChild("Arms")
+            if arms then return arms end
+        end
+    end
+    return nil
+end
+
+local function applyArmSkin()
+    if not Options.ArmSkinEnabled then return end
+    local arms = findArms()
+    if arms then
+        for _, child in ipairs(arms:GetDescendants()) do
+            if child:IsA("BasePart") and (child.Name == "Right Arm" or child.Name == "Left Arm") then
+                child.Material = Enum.Material[Options.ArmMaterial]
+                child.Color = Options.ArmColor
+            end
+        end
+    end
+end
+
+CombatLeft:create_toggle("ArmSkinEnabled", {
+    title = "Enable Arm Skin",
+    default = false,
+    callback = function(v)
+        Options.ArmSkinEnabled = v
+        if v then
+            if not armConn then armConn = RunService.Heartbeat:Connect(applyArmSkin) end
+        else
+            if armConn then armConn:Disconnect(); armConn = nil end
+        end
+    end
+})
+
+CombatLeft:create_dropdown("ArmMaterial", {
+    title = "Arm Material",
+    options = {"Plastic", "ForceField", "Wood", "Grass"},
+    default = "Plastic",
+    callback = function(v) Options.ArmMaterial = v end
+})
+
+--- Lock On (Aimbot) ---
+Options.LockOnEnabled = false
+Options.LockOnTarget = "Enemies"
+Options.LockOnSmooth = false
+Options.LockOnSmoothness = 0.2
+Options.LockOnMaxDistance = 200
+Options.LockOnFOVRadius = 150
+Options.LockOnShowFOV = false
+Options.LockOnWallCheck = true
+
+local lockConnection = nil
+local lockOnFOVCircle = Drawing.new("Circle")
+lockOnFOVCircle.Visible = false
+lockOnFOVCircle.Thickness = 1.5
+lockOnFOVCircle.Color = Color3.fromRGB(0, 255, 255)
+lockOnFOVCircle.Transparency = 0.5
+lockOnFOVCircle.NumSides = 64
+lockOnFOVCircle.Filled = false
+
+local function isLockTarget(player)
+    if not player or player == LocalPlayer then return false end
+    if not player.Team or not LocalPlayer.Team then return false end
+    if Options.LockOnTarget == "Everyone" then return true end
+    return player.Team ~= LocalPlayer.Team
+end
+
+local function isVisible(targetPart)
+    if not Options.LockOnWallCheck then return true end
+    local myChar = getCharacter()
+    if not myChar then return false end
+
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    rayParams.FilterDescendantsInstances = {myChar, Camera}
+
+    local origin = Camera.CFrame.Position
+    local direction = targetPart.Position - origin
+    local result = Workspace:Raycast(origin, direction, rayParams)
+
+    if result and result.Instance then
+        return result.Instance:IsDescendantOf(targetPart.Parent)
+    end
+    return true
+end
+
+local function getClosestLockTarget()
+    local cam = Camera
+    if not cam then return nil end
+    local myChar = getCharacter()
+    if not myChar or not myChar:FindFirstChild("Head") then return nil end
+    local myHeadPos = myChar.Head.Position
+    local maxWorldDist = Options.LockOnMaxDistance
+    local fovRadius = Options.LockOnFOVRadius
+    local screenCenter = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
+    local best = nil
+    local bestScreenDist = fovRadius + 1
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if isLockTarget(plr) and plr.Character then
+            local targetHead = plr.Character:FindFirstChild("Head")
+            if targetHead and isVisible(targetHead) then
+                local worldDist = (targetHead.Position - myHeadPos).Magnitude
+                if worldDist <= maxWorldDist then
+                    local screenPos, onScreen = cam:WorldToViewportPoint(targetHead.Position)
+                    if onScreen then
+                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                        if screenDist <= fovRadius and screenDist < bestScreenDist then
+                            bestScreenDist = screenDist
+                            best = plr
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+local function updateLock()
+    local cam = Camera
+    if not cam then return end
+
+    if Options.LockOnEnabled and Options.LockOnShowFOV then
+        lockOnFOVCircle.Position = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
+        lockOnFOVCircle.Radius = Options.LockOnFOVRadius
+        lockOnFOVCircle.Visible = true
+    else
+        lockOnFOVCircle.Visible = false
+    end
+
+    if not Options.LockOnEnabled or not isAlive then return end
+    local target = getClosestLockTarget()
+    if target and target.Character then
+        local targetHead = target.Character:FindFirstChild("Head")
+        if targetHead then
+            local cframe = CFrame.new(cam.CFrame.Position, targetHead.Position)
+            if Options.LockOnSmooth then
+                cam.CFrame = cam.CFrame:Lerp(cframe, Options.LockOnSmoothness)
+            else
+                cam.CFrame = cframe
+            end
+        end
+    end
+end
+
+CombatRight:create_toggle("LockOnEnabled", {
+    title = "Enable Lock On",
+    default = false,
+    callback = function(v)
+        Options.LockOnEnabled = v
+        if v then
+            if not lockConnection then lockConnection = RunService.RenderStepped:Connect(updateLock) end
+        else
+            if lockConnection then lockConnection:Disconnect(); lockConnection = nil end
+            lockOnFOVCircle.Visible = false
+        end
+    end
+})
+
+CombatRight:create_toggle("LockOnWallCheck", {
+    title = "Wall Check (Visible Only)",
+    default = true,
+    callback = function(v) Options.LockOnWallCheck = v end
+})
+
+CombatRight:create_dropdown("LockOnTarget", {
+    title = "Lock On Target",
+    options = {"Enemies", "Everyone"},
+    default = "Enemies",
+    callback = function(v) Options.LockOnTarget = v end
+})
+
+CombatRight:create_toggle("LockOnSmooth", {
+    title = "Lock On Smooth",
+    default = false,
+    callback = function(v) Options.LockOnSmooth = v end
+})
+
+CombatRight:create_slider("LockOnSmoothness", {
+    title = "Smoothness Amount",
+    minimum = 1,
+    maximum = 50,
+    default = 20,
+    rounding = true,
+    callback = function(v) Options.LockOnSmoothness = v / 100 end
+})
+
+CombatRight:create_slider("LockOnFOVRadius", {
+    title = "Lock On FOV Radius",
+    minimum = 50,
+    maximum = 400,
+    default = 150,
+    rounding = true,
+    callback = function(v) Options.LockOnFOVRadius = v end
+})
+
+CombatRight:create_toggle("LockOnShowFOV", {
+    title = "Show FOV Circle",
+    default = false,
+    callback = function(v) Options.LockOnShowFOV = v end
+})
+
+-- ======================================
+-- CHARACTER TAB
+-- ======================================
+
+--- Speed Hack ---
+Options.CustomSpeed = false
+Options.WalkSpeed = 16
+local speedConn = nil
+
+local function applySpeed()
+    if not Options.CustomSpeed or not isAlive then return end
+    local hum = getHumanoid()
+    local root = getHumanoidRootPart()
+    if hum and root then
+        local moveDir = hum.MoveDirection
+        local spd = Options.WalkSpeed
+        root.Velocity = Vector3.new(moveDir.X * spd, root.Velocity.Y, moveDir.Z * spd)
+    end
+end
+
+CharLeft:create_toggle("CustomSpeed", {
+    title = "Enable Custom Speed",
+    default = false,
+    callback = function(v)
+        Options.CustomSpeed = v
+        if v then
+            if not speedConn then speedConn = RunService.Stepped:Connect(applySpeed) end
+        else
+            if speedConn then speedConn:Disconnect(); speedConn = nil end
+        end
+    end
+})
+
+CharLeft:create_slider("WalkSpeed", {
+    title = "Walk Speed",
+    minimum = 16,
+    maximum = 500,
+    default = 16,
+    rounding = true,
+    callback = function(v) Options.WalkSpeed = v end
+})
+
+-- ======================================
+-- VISUALS TAB
+-- ======================================
+
+Options.ESPEnabled = false
+Options.ESPBox = false
+Options.ESPName = false
+local drawingPool = {}
+
+local function getOrCreateDrawing(player, type, class)
+    if not drawingPool[player] then drawingPool[player] = {} end
+    if not drawingPool[player][type] then
+        local obj = Drawing.new(class)
+        obj.Visible = false
+        drawingPool[player][type] = obj
+    end
+    return drawingPool[player][type]
+end
+
+Players.PlayerRemoving:Connect(function(player)
+    if drawingPool[player] then
+        for _, obj in pairs(drawingPool[player]) do
+            pcall(function() obj:Remove() end)
+        end
+        drawingPool[player] = nil
+    end
+end)
+
+local function updateESP()
+    if not Options.ESPEnabled then
+        for _, types in pairs(drawingPool) do
+            for _, obj in pairs(types) do obj.Visible = false end
+        end
+        return
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            local head = player.Character:FindFirstChild("Head")
+            if root and head then
+                local headPos, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                local rootPos, rootOn = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+                
+                -- Box
+                local box = getOrCreateDrawing(player, "Box", "Square")
+                if Options.ESPBox and headOn and rootOn then
+                    local height = math.abs(rootPos.Y - headPos.Y)
+                    local width = height * 0.6
+                    box.Size = Vector2.new(width, height)
+                    box.Position = Vector2.new((headPos.X + rootPos.X)/2 - width/2, math.min(headPos.Y, rootPos.Y))
+                    box.Thickness = 1.5
+                    box.Color = Color3.fromRGB(255, 0, 0)
+                    box.Visible = true
+                else
+                    box.Visible = false
+                end
+
+                -- Name
+                local nameText = getOrCreateDrawing(player, "Name", "Text")
+                if Options.ESPName and headOn then
+                    nameText.Text = player.Name
+                    nameText.Position = Vector2.new(headPos.X, headPos.Y - 15)
+                    nameText.Color = Color3.fromRGB(255, 255, 255)
+                    nameText.Size = 12
+                    nameText.Center = true
+                    nameText.Outline = true
+                    nameText.Visible = true
+                else
+                    nameText.Visible = false
+                end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(updateESP)
+
+VisLeft:create_toggle("ESPEnabled", {
+    title = "Enable ESP",
+    default = false,
+    callback = function(v) Options.ESPEnabled = v end
+})
+
+VisLeft:create_toggle("ESPBox", {
+    title = "Box ESP",
+    default = false,
+    callback = function(v) Options.ESPBox = v end
+})
+
+VisLeft:create_toggle("ESPName", {
+    title = "Name ESP",
+    default = false,
+    callback = function(v) Options.ESPName = v end
+})
+
+--- World Visuals ---
+Options.Fullbright = false
+local oldBrightness = Lighting.Brightness
+local oldClockTime = Lighting.ClockTime
+local oldFogEnd = Lighting.FogEnd
+local oldGlobalShadows = Lighting.GlobalShadows
+
+VisRight:create_toggle("Fullbright", {
+    title = "Enable Fullbright",
+    default = false,
+    callback = function(v)
+        Options.Fullbright = v
+        if v then
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 14
+            Lighting.FogEnd = 100000
+            Lighting.GlobalShadows = false
+        else
+            Lighting.Brightness = oldBrightness
+            Lighting.ClockTime = oldClockTime
+            Lighting.FogEnd = oldFogEnd
+            Lighting.GlobalShadows = oldGlobalShadows
+        end
+    end
+})
+
+VisRight:create_toggle("RemoveFog", {
+    title = "Remove Fog",
+    default = false,
+    callback = function(v)
+        if v then
+            Lighting.FogEnd = 9e9
+        else
+            Lighting.FogEnd = oldFogEnd
+        end
+    end
+})
+
+-- ======================================
+-- MISC TAB
+-- ======================================
+
+MiscLeft:create_button("FPSBoost", {
+    title = "Boost FPS",
+    callback = function()
+        Lighting.GlobalShadows = false
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                obj.Material = Enum.Material.SmoothPlastic
+            end
+        end
+    end
+})
+
+-- ======================================
+-- SETTINGS TAB
+-- ======================================
+
+SettingsLeft:create_button("ServerHop", {
+    title = "Server Hop",
+    callback = function()
+        pcall(function()
+            local placeId = game.PlaceId
+            local req = game:HttpGet("https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100")
+            local servers = HttpService:JSONDecode(req).data
+            for _, server in ipairs(servers) do
+                if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                    TeleportService:TeleportToPlaceInstance(placeId, server.id, LocalPlayer)
+                    break
+                end
+            end
+        end)
+    end
+})
+
+SettingsLeft:create_button("RejoinServer", {
+    title = "Rejoin Server",
+    callback = function()
+        TeleportService:Teleport(game.PlaceId, LocalPlayer)
+    end
+})
+
+print("Kscript (Arsenal Edition) loaded successfully!")
