@@ -1,0 +1,392 @@
+local t1 = {}
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/Angeli%20ui%20(1).txt"))()
+
+t1.value1 = game:GetService("Players").LocalPlayer
+t1.value2 = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+t1.value3 = {
+	AutoHarvest = false,
+	AutoSpin = false,
+	AutoRebirth = false,
+	AutoRoll = false,
+	AutoClaimIndex = false
+}
+
+-- Angeli UI Window Setup
+local Window = Library._new()
+
+-- Override the default top-left "Angeli" text label dynamically
+task.spawn(function()
+	local CoreGui = game:GetService("CoreGui")
+	local PlayerGui = t1.value1:WaitForChild("PlayerGui")
+	
+	local function fixTitle(gui)
+		for _, v in ipairs(gui:GetDescendants()) do
+			if v:IsA("TextLabel") and (v.Text == "Angeli" or v.Name == "Title") then
+				v.Text = "Legacy Hub"
+			end
+		end
+	end
+
+	-- Check CoreGui and PlayerGui where Angeli UI mounts
+	for _, parent in ipairs({CoreGui, PlayerGui}) do
+		for _, child in ipairs(parent:GetChildren()) do
+			fixTitle(child)
+		end
+		parent.ChildAdded:Connect(fixTitle)
+	end
+end)
+
+local MainCategory = Window:create_category("Farming")
+local MainTab = MainCategory:create_tab("Main")
+local LeftGroup = MainTab:create_group("Legacy Hub", "left")
+
+t1.value4 = nil
+function t1.value4(p1)
+	if not p1 then
+		return
+	end
+
+	if firesignal then
+		firesignal(p1.MouseButton1Click)
+		firesignal(p1.Activated)
+
+		return
+	end
+
+	pcall(function()
+		p1.MouseButton1Click:Fire()
+	end)
+end
+
+function t1.value5()
+	local Character = t1.value1.Character
+
+	if not Character then
+		Character = t1.value1.CharacterAdded:Wait()
+	end
+
+	local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+	local children = workspace:WaitForChild("Interactive"):WaitForChild("Plots"):GetChildren()
+	local HumanoidRootPartCFrame = HumanoidRootPart.CFrame
+
+	for _, v in ipairs(children) do
+		if t1.value1.UserId == v:GetAttribute("OwnerUserId") then
+			local Slots = v:FindFirstChild("Slots")
+
+			if Slots then
+				for _, child in ipairs(Slots:GetChildren()) do
+					local v25 = child
+
+					pcall(function()
+						if v25.Collecter.Button.SurfaceGui.Frame.Amount.Text ~= "$0" then
+							HumanoidRootPart.CFrame = v25.Collecter.Button.CFrame
+							task.wait(0.1)
+						end
+					end)
+				end
+			end
+		end
+	end
+
+	HumanoidRootPart.CFrame = HumanoidRootPartCFrame
+end
+
+function t1.value6()
+	local PlayerGui = t1.value1:FindFirstChild("PlayerGui")
+	local v11
+	if PlayerGui then
+		for _, descendant in pairs(PlayerGui:GetDescendants()) do
+			local v14 = descendant:IsA("TextLabel")
+
+			if v14 then
+				v14 = descendant.Name == "Amount"
+
+				if v14 then
+					v14 = descendant.Parent
+
+					if v14 then
+						v14 = descendant.Parent.Name == "Spin"
+					end
+				end
+			end
+
+			if v14 then
+				v11 = descendant
+
+				break
+			end
+		end
+	end
+	if v11 then
+		local v15 = v11.Text:match("Spin %((%d+)%)")
+
+		if v15 and tonumber(v15) > 0 then
+			t1.value2:WaitForChild("ServerBoundSpinWheel"):FireServer("spin")
+			task.wait(7)
+		end
+	end
+end
+
+function t1.value7()
+	local PlayerGui = t1.value1:FindFirstChild("PlayerGui")
+
+	if not PlayerGui then
+		return
+	end
+
+	local MainGui = PlayerGui:FindFirstChild("MainGui")
+
+	if MainGui then
+		MainGui = PlayerGui.MainGui:FindFirstChild("LeftFrame")
+
+		if MainGui then
+			MainGui = PlayerGui.MainGui.LeftFrame:FindFirstChild("Rebirth")
+
+			if MainGui then
+				MainGui = PlayerGui.MainGui.LeftFrame.Rebirth:FindFirstChild("NotificationLabel")
+			end
+		end
+	end
+
+	local RebirthGui = PlayerGui:FindFirstChild("RebirthGui")
+
+	if RebirthGui then
+		RebirthGui = PlayerGui.RebirthGui:FindFirstChild("Frame")
+
+		if RebirthGui then
+			RebirthGui = PlayerGui.RebirthGui.Frame:FindFirstChild("Rebirth")
+		end
+	end
+
+	if MainGui then
+		MainGui = MainGui.Visible
+
+		if MainGui then
+			MainGui = RebirthGui
+
+			if RebirthGui then
+				MainGui = RebirthGui:IsA("GuiButton")
+			end
+		end
+	end
+
+	if MainGui then
+		t1.value4(RebirthGui)
+	end
+end
+
+function t1.value8()
+	local MainGui = t1.value1.PlayerGui:FindFirstChild("MainGui")
+
+	if not MainGui then
+		return
+	end
+
+	local DiceHolder = MainGui:FindFirstChild("DiceHolder")
+
+	if not DiceHolder then
+		return
+	end
+
+	local MainDiceFrame = DiceHolder:FindFirstChild("MainDiceFrame")
+	local v32 = MainDiceFrame and MainDiceFrame:FindFirstChild("DiceButton")
+
+	if not v32 or not v32:IsA("GuiButton") then
+		return
+	end
+
+	local DiceCountLabel = v32:FindFirstChild("DiceCountLabel")
+	local v34 = DiceCountLabel
+
+	if DiceCountLabel then
+		v34 = DiceCountLabel:IsA("TextLabel")
+	end
+
+	if v34 then
+		v34 = tonumber(DiceCountLabel.Text:match("%d+"))
+	end
+
+	local v35 = v34 or 0
+	local SelectableDicesFrame = DiceHolder:FindFirstChild("SelectableDicesFrame")
+
+	if SelectableDicesFrame then
+		local GetChildren = SelectableDicesFrame.GetChildren
+		local v38
+		for v41, v42 in pairs(GetChildren(SelectableDicesFrame)) do
+
+			local dicecountLaber = v42:FindFirstChild("dicecountLaber")
+
+			if not dicecountLaber then
+				dicecountLaber = v42:FindFirstChild("DiceCountLabel")
+			end
+
+			local v44 = dicecountLaber
+
+			if dicecountLaber then
+				v44 = dicecountLaber:IsA("TextLabel")
+			end
+
+			if v44 then
+				local v45 = tonumber(dicecountLaber.Text:match("%d+")) or 0
+
+				if v35 < v45 then
+					v35 = v45
+					v38 = v42
+				end
+			end
+		end
+		local v46 = v38
+		if v38 then
+			v46 = v38:IsA("GuiButton")
+		end
+		if v46 then
+			t1.value4(v38)
+			task.wait(0.1)
+		end
+	end
+
+	t1.value4(v32)
+end
+
+function t1.value9()
+	local IndexGui = t1.value1.PlayerGui:FindFirstChild("IndexGui")
+
+	if not IndexGui then
+		return
+	end
+
+	local Frame = IndexGui:FindFirstChild("Frame")
+
+	if Frame then
+		Frame = Frame:FindFirstChild("Claimall")
+	end
+
+	local v28 = Frame
+
+	pcall(function()
+		if t1.value1.PlayerGui.MainGui.LeftFrame.Index.NotificationLabel.Visible then
+			local v55 = v28
+
+			if v55 then
+				v55 = v28:IsA("GuiButton")
+			end
+
+			if v55 then
+				local v56 = v28
+
+				t1.value4(v56)
+			end
+		end
+	end)
+end
+
+-- UI Controls
+LeftGroup:create_button("CollectMoneyButton", {
+	title = "Collect All Money",
+	callback = t1.value5
+})
+
+LeftGroup:create_toggle("AutoHarvestToggle", {
+	title = "Auto Collect Money",
+	default = false,
+	callback = function(p2)
+		t1.value3.AutoHarvest = p2
+
+		if t1.value3.AutoHarvest then
+			task.spawn(function()
+				while t1.value3.AutoHarvest do
+					t1.value5()
+					task.wait(1)
+				end
+			end)
+		end
+	end
+})
+
+LeftGroup:create_toggle("AutoSpinToggle", {
+	title = "Auto Spin Wheel",
+	default = false,
+	callback = function(p3)
+		t1.value3.AutoSpin = p3
+
+		if t1.value3.AutoSpin then
+			task.spawn(function()
+				while t1.value3.AutoSpin do
+					pcall(t1.value6)
+					task.wait(1)
+				end
+			end)
+		end
+	end
+})
+
+LeftGroup:create_toggle("AutoRebirthToggle", {
+	title = "Auto Rebirth",
+	default = false,
+	callback = function(p4)
+		t1.value3.AutoRebirth = p4
+
+		if t1.value3.AutoRebirth then
+			task.spawn(function()
+				while t1.value3.AutoRebirth do
+					pcall(t1.value7)
+					task.wait(2)
+				end
+			end)
+		end
+	end
+})
+
+LeftGroup:create_toggle("AutoRollToggle", {
+	title = "Auto Roll",
+	default = false,
+	callback = function(p5)
+		t1.value3.AutoRoll = p5
+
+		if t1.value3.AutoRoll then
+			task.spawn(function()
+				while t1.value3.AutoRoll do
+					pcall(t1.value8)
+					task.wait(0.5)
+				end
+			end)
+		end
+	end
+})
+
+LeftGroup:create_toggle("AutoClaimIndexToggle", {
+	title = "Auto Claim Index",
+	default = false,
+	callback = function(p6)
+		t1.value3.AutoClaimIndex = p6
+
+		if t1.value3.AutoClaimIndex then
+			task.spawn(function()
+				while t1.value3.AutoClaimIndex do
+					t1.value9()
+					task.wait(0.5)
+				end
+			end)
+		end
+	end
+})
+
+LeftGroup:create_slider("WalkSpeedSlider", {
+	title = "WalkSpeed",
+	minimum = 16,
+	maximum = 250,
+	default = 16,
+	rounding = true,
+	callback = function(p7)
+		local Character = t1.value1.Character
+		local v54 = Character
+
+		if Character then
+			v54 = Character:FindFirstChild("Humanoid")
+		end
+
+		if v54 then
+			Character.Humanoid.WalkSpeed = p7
+		end
+	end
+})
