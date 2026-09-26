@@ -1,0 +1,248 @@
+local Env = getfenv()
+
+-- Load Angeli UI Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/Angeli%20ui%20(1).txt"))()
+
+-- Initialize Window, Category, Tab, and Group
+local Window = Library._new()
+local MainCategory = Window:create_category("+1 Drain Water")
+local MainTab = MainCategory:create_tab("Main")
+local MainGroup = MainTab:create_group("Farm Settings", "left")
+
+task.spawn(function()
+    while task.wait() do
+        if tick() - tick() >= 1 then
+            tick()
+            local timeStr = os.date(table.concat({"%H", "%M", "%S"}, ":"))
+        end
+    end
+end)
+
+MainGroup:create_toggle("AutoLevel", {
+    title = "Auto Level",
+    default = false,
+    callback = function(state)
+        _G.Level = state
+        print("Level: ", state)
+        if state then
+            Level()
+        end
+    end
+})
+
+Level = function()
+    spawn(function()
+        _G.Level = true
+        while _G.Level do
+            wait()
+            pcall(function()
+                local remote = game:GetService("ReplicatedStorage").Remote.Event.Level
+                local click = remote:FindFirstChild("[C-S]Click")
+                click:FireServer(unpack({[1] = 0}))
+                wait()
+            end)
+        end
+    end)
+end
+
+MainGroup:create_toggle("AutoRebirth", {
+    title = "Auto Rebirth",
+    default = false,
+    callback = function(state)
+        _G.Rebirth = state
+        print("Rebirth: ", state)
+        if state then
+            Rebirth()
+        end
+    end
+})
+
+Rebirth = function()
+    spawn(function()
+        _G.Rebirth = true
+        while _G.Rebirth do
+            wait()
+            pcall(function()
+                local gui = game:GetService("Players").LocalPlayer.PlayerGui.HUD.Main.Left.Rebirth.GuideFingerIcon.Visible
+                if gui == true then
+                    local remote = game:GetService("ReplicatedStorage").Remote.Event.Rebirth
+                    local tryRebirth = remote:FindFirstChild("[C - S]TryRebirth")
+                    tryRebirth:FireServer()
+                end
+                wait(0.2)
+            end)
+        end
+    end)
+end
+
+MainGroup:create_dropdown("StageSelect", {
+    title = "Stage Farm (1-15)",
+    options = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"},
+    default = "1",
+    callback = function(value)
+        stageadd = value
+    end
+})
+
+MainGroup:create_toggle("AutoStage", {
+    title = "Auto Stage",
+    default = false,
+    callback = function(state)
+        _G.Stage = state
+        print("Stage: ", state)
+        if state then
+            Stage()
+        end
+    end
+})
+
+local function StageComplete()
+    tonumber(stageadd)
+    while _G.Stage do
+        local moneyText = game:GetService("Players").LocalPlayer.PlayerGui.HUD.Main.Money["01"].Number.Text
+        local matches = {moneyText:match("(%d+)/(%d+)")}
+        local current = matches[1]
+        local required = matches[2]
+        
+        if current and required then
+            if tonumber(current) >= tonumber(required) then
+                break
+            end
+        end
+        
+        local targetStage = nil
+        local worldFish = workspace["主场景"]["验证场景"].WorldFish
+        
+        for _, child in pairs(worldFish:GetChildren()) do
+            if child:GetAttribute("StageId") == tonumber(stageadd) then
+                local fishRoot = child:FindFirstChild("FishRoot")
+                if fishRoot then
+                    local prompt = fishRoot:FindFirstChild("PickupPrompt")
+                end
+                if fishRoot then
+                    local price = child:GetAttribute("Price") or 0
+                    if price > -1 then
+                        targetStage = child
+                    end
+                end
+            end
+        end
+        
+        if targetStage then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetStage.FishRoot.CFrame
+            task.wait(0.2)
+            fireproximityprompt(targetStage.FishRoot.PickupPrompt)
+            task.wait(0.3)
+        end
+        
+        pcall(function()
+            local remote = game:GetService("ReplicatedStorage").Remote.Event.Level
+            local goShow = remote:FindFirstChild("[C-S]GoShow")
+            goShow:FireServer()
+            task.wait(2)
+        end)
+    end
+end
+
+Stage = function()
+    task.spawn(function()
+        _G.Stage = true
+        local currentStage = 1
+        local targetStage = tonumber(stageadd)
+        
+        while _G.Stage and currentStage <= targetStage do
+            pcall(function()
+                local scene = workspace["主场景"]["验证场景"]
+                
+                for _, child in pairs(scene:GetChildren()) do
+                    local stageNum = child.Name:match("(%d+)$")
+                    if stageNum == tostring(currentStage) then
+                        local water = child["水面"]
+                        if water.CanCollide == true then
+                            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = water.CFrame * CFrame.new(0, 5, 0)
+                        else
+                            if currentStage < targetStage then
+                                currentStage = currentStage + 1
+                            else
+                                StageComplete()
+                                currentStage = 1
+                            end
+                            break
+                        end
+                    end
+                end
+            end)
+            task.wait()
+        end
+    end)
+end
+
+MainGroup:create_toggle("CollectCash", {
+    title = "Collect Cash",
+    default = false,
+    callback = function(state)
+        _G.Cash = state
+        print("Cash: ", state)
+        if state then
+            Cash()
+        end
+    end
+})
+
+Cash = function()
+    spawn(function()
+        _G.Cash = true
+        while _G.Cash do
+            wait()
+            pcall(function()
+                local player = game:GetService("Players").LocalPlayer
+                local plotId = player:GetAttribute("FishShowPlotId")
+                local collectButton = workspace[plotId]["玩家区域"]["收集按钮"].Touch
+                
+                firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, collectButton, 0)
+                wait()
+                firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, collectButton, 1)
+                wait(5)
+            end)
+        end
+    end)
+end
+
+MainGroup:create_toggle("EquipBestFish", {
+    title = "Equip Best Fish",
+    default = false,
+    callback = function(state)
+        _G.Equip = state
+        print("Equip: ", state)
+        if state then
+            Equip()
+        end
+    end
+})
+
+Equip = function()
+    spawn(function()
+        _G.Equip = true
+        while _G.Equip do
+            wait()
+            pcall(function()
+                local remote = game:GetService("ReplicatedStorage").Remote.Function.FishShow
+                local bestFish = remote:FindFirstChild("[C-S]BestFishUI")
+                bestFish:InvokeServer()
+                wait(2)
+            end)
+        end
+    end)
+end
+
+MainGroup:create_button("SellAll", {
+    title = "Sell All",
+    callback = function()
+        local player = game:GetService("Players").LocalPlayer
+        if player:GetAttribute("StageCompleted_1") == false then
+            local remote = game:GetService("ReplicatedStorage").Remote.Function.Fish
+            local sellAll = remote:FindFirstChild("[C-S]SellAllFish")
+            sellAll:InvokeServer(unpack({[1] = "OFF", [2] = false}))
+        end
+    end
+})
