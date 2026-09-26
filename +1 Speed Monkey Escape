@@ -1,0 +1,730 @@
+-- +1 Speed Monkey Escape | @hidevin | Legacy Hub Switch
+-- Logic preserved 1:1 from original raw script
+
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/Angeli%20ui%20(1).txt"))()
+local Window = Library._new()
+
+-- Deep Search & Override for the UI Title Text
+task.spawn(function()
+    task.wait(0.2)
+    local CoreGui = game:GetService("CoreGui")
+    local LocalPlayer = game:GetService("Players").LocalPlayer
+    
+    local function fixTitle(container)
+        for _, v in ipairs(container:GetDescendants()) do
+            if (v:IsA("TextLabel") or v:IsA("TextButton")) and v.Text:find("Angeli") then
+                v.Text = string.gsub(v.Text, "Angeli", "Legacy Hub")
+            end
+        end
+    end
+
+    fixTitle(CoreGui)
+    if LocalPlayer:FindFirstChild("PlayerGui") then
+        fixTitle(LocalPlayer.PlayerGui)
+    end
+end)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local VirtualUser = game:GetService("VirtualUser")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local LocalPlayer = Players.LocalPlayer
+local Data = LocalPlayer:WaitForChild("Data")
+
+local GameName = "+1 Speed Monkey Escape"
+pcall(function() GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+
+-- Embedded configs
+local UpgradesCfg = {
+    {WinsRequirement=0, Multi=1, Skin="Basic"},
+    {Multi=2, Skin="Grey", WinsRequirement=3},
+    {Multi=4, Skin="Tiger", WinsRequirement=15},
+    {Multi=8, Skin="Curly", WinsRequirement=100},
+    {Multi=16, Skin="Rainbow", WinsRequirement=500},
+    {Multi=32, Skin="Golden", WinsRequirement=2500},
+    {Multi=64, Skin="Magma", WinsRequirement=15000},
+    {Multi=128, Skin="Frozen", WinsRequirement=50000},
+    {Multi=256, Skin="Devil", WinsRequirement=250000},
+    {Multi=512, Skin="Night", WinsRequirement=1000000},
+    {Multi=1000, Skin="Inferno", WinsRequirement=1000000},
+    {Multi=2000, Skin="Verdant", WinsRequirement=5000000},
+    {Multi=4000, Skin="Abyss", WinsRequirement=25000000},
+    {Multi=8000, Skin="Arcane", WinsRequirement=100000000},
+    {Multi=16000, Skin="Divine", WinsRequirement=500000000},
+    {Multi=32000, Skin="Crimson", WinsRequirement=3000000000},
+}
+
+local MainCfg = {
+    WorldRebirthsRequired={World2=8,World3=16,World4=24,World5=32}, 
+    RebirthLevels={15,25,40,60,80,100,125,150,165,175,190,210,230,250,275,300,315,325,340,360,380,400,425,450,465,475,490,510,530,550,575,600,615,625,640,660,680}, 
+    MaxLevel=690, 
+    StageWins={
+        World1={1,5,20,100,500,3000,15000,50000,200000}, 
+        World2={1000000,5000000,25000000,100000000,600000000,3000000000,25000000000,150000000000,1000000000000}, 
+        World3={5000000000000,20000000000000,75000000000000,250000000000000,1000000000000000,5000000000000000,25000000000000000,100000000000000000,400000000000000000}, 
+        World4={2000000000000000000,10000000000000000000,75000000000000000000,350000000000000000000,2000000000000000000000,10000000000000000000000,50000000000000000000000,250000000000000000000000,1000000000000000000000000}, 
+        World5={5000000000000000000000000,25000000000000000000000000,75000000000000000000000000,250000000000000000000000000,1000000000000000000000000000,5000000000000000000000000000,20000000000000000000000000000,80000000000000000000000000000,350000000000000000000000000000}
+    }
+}
+
+local TreadmillCfg = {Multis={Reward=1.5, Golden=3, Diamond=9, Galaxy=25, Emerald=100, Void=100, Celestial=1000, Sunken=2, Quantum=10, Basic=1}}
+local Formatter = {Format=function(v) return tostring(v) end}
+local BigNum = {
+    GreaterEqual=function(a,b)
+        local av = 0
+        if a and a:FindFirstChild("Digits") then av = tonumber(a.Digits.Value) or 0 elseif a and a:FindFirstChild("Value") then av = tonumber(a.Value) or 0 elseif a and a.Value then av = tonumber(a.Value) or 0 end
+        local bv = tonumber(b) or 0
+        return av >= bv
+    end,
+    OnChanged=function(a,cb)
+        if a and a.Changed then a.Changed:Connect(function() cb() end) end
+        if a and a:FindFirstChild("Digits") and a.Digits.Changed then a.Digits.Changed:Connect(function() cb() end) end
+    end
+}
+
+-- Options & Toggles storage
+local Toggles = {}
+local Options = {}
+
+local function safeFire(remote,...)
+    if not remote then return false end
+    local ok,err
+    local cn = remote.ClassName
+    if cn=="RemoteEvent" then ok,err = pcall(function(...) remote:FireServer(...) end, ...)
+    elseif cn=="RemoteFunction" then ok,err = pcall(function(...) return remote:InvokeServer(...) end, ...)
+    else ok,err = pcall(function(...) remote:FireServer(...) end, ...) end
+    if not ok then warn("[FireFailed] "..remote.Name..": "..tostring(err)) end
+    return ok
+end
+
+local Loops = {}
+local function runLoop(id, toggleId, intervalId, fn)
+    if Loops[id] then task.cancel(Loops[id]); Loops[id]=nil end
+    Loops[id] = task.spawn(function()
+        while Toggles[toggleId] do
+            local ok, err = pcall(fn)
+            if not ok then warn("["..id.."]", err) end
+            local iv = Options[intervalId] or 0.5
+            task.wait(iv)
+        end
+        Loops[id] = nil
+    end)
+end
+
+local function stopLoop(id) 
+    if Loops[id] then task.cancel(Loops[id]); Loops[id]=nil end 
+end
+
+local AntiAFKConn
+local function setAntiAFK(s)
+    if s then
+        if AntiAFKConn then AntiAFKConn:Disconnect() end
+        AntiAFKConn = LocalPlayer.Idled:Connect(function()
+            VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end)
+    else
+        if AntiAFKConn then AntiAFKConn:Disconnect(); AntiAFKConn=nil end
+    end
+end
+
+-- Compact Categories & Tabs
+local MainCategory = Window:create_category("Main")
+local MainTab = MainCategory:create_tab("Dashboard")
+
+local FarmingCategory = Window:create_category("Farming")
+local FarmTab = FarmingCategory:create_tab("Autofarm")
+local RewardsTab = FarmingCategory:create_tab("Rewards")
+
+local InventoryCategory = Window:create_category("Inventory")
+local GearTab = InventoryCategory:create_tab("Cosmetics & Tails")
+local CharmsTab = InventoryCategory:create_tab("Charms")
+
+local SettingsCategory = Window:create_category("Settings")
+local SettingsTab = SettingsCategory:create_tab("System")
+
+-- MAIN DASHBOARD
+do
+    local LeftGroup = MainTab:create_group("Info", "left")
+    LeftGroup:create_button("GameInfo", { title = "Game: " .. GameName, callback = function() end })
+    LeftGroup:create_button("PlaceInfo", { title = "PlaceId: " .. tostring(game.PlaceId), callback = function() end })
+    LeftGroup:create_button("CopyGameName", { title = "Copy Game Name", callback = function() if setclipboard then setclipboard(GameName) end end })
+
+    local RightGroup = MainTab:create_group("Quick Status & Rebirth", "right")
+    local function upd() 
+        return string.format("Lvl %d | Rebirths %d | Wins %s", Data.Level.Value, Data.Rebirths.Value, Data.Wins:FindFirstChild("Digits") and Data.Wins.Digits.Value or "?") 
+    end
+    RightGroup:create_button("StatusBtn", { title = upd(), callback = function() end })
+
+    Toggles["AutoRebirth"] = false
+    RightGroup:create_toggle("AutoRebirth", {
+        title = "Auto Rebirth",
+        default = false,
+        callback = function(state)
+            Toggles["AutoRebirth"] = state
+            if state then
+                runLoop("AutoRebirth","AutoRebirth","AutoRebirth_Interval",function()
+                    if Remotes:FindFirstChild("Rebirth") then safeFire(Remotes.Rebirth) end
+                end)
+            else stopLoop("AutoRebirth") end
+        end
+    })
+    Options["AutoRebirth_Interval"] = 1
+    RightGroup:create_slider("AutoRebirth_Interval", {
+        title = "Rebirth Interval", minimum = 0.01, maximum = 10, default = 1, rounding = true,
+        callback = function(value) Options["AutoRebirth_Interval"] = value end
+    })
+    RightGroup:create_button("RebirthNow", {
+        title = "Rebirth Now",
+        callback = function() if Remotes:FindFirstChild("Rebirth") then safeFire(Remotes.Rebirth) end end
+    })
+end
+
+-- FARMING > AUTOFARM
+do
+    local LeftGroup = FarmTab:create_group("Treadmill Train", "left")
+    local TreadmillTypes = {"Basic","Golden","Diamond","Galaxy","Void","Celestial","Sunken","Quantum","Reward","Emerald"}
+    pcall(function()
+        TreadmillTypes = {}
+        for k,_ in pairs(TreadmillCfg.Multis) do table.insert(TreadmillTypes,k) end
+        table.sort(TreadmillTypes)
+    end)
+
+    Options["TrainTreadmill_Select"] = "Basic"
+    LeftGroup:create_dropdown("TrainTreadmill_Select", {
+        title = "Manual Treadmill",
+        options = TreadmillTypes,
+        default = "Basic",
+        callback = function(value) Options["TrainTreadmill_Select"] = value end
+    })
+
+    local function isTreadmillUnlocked(ttype)
+        if ttype=="Sunken" then local s=Data:FindFirstChild("CollectedShards") if not s or #s:GetChildren()<9 then return false end end
+        if ttype=="Quantum" then return false end
+        local paidList={Golden=true, Diamond=true, Galaxy=true, Void=true, Celestial=true}
+        if not paidList[ttype] then return true end
+        return Data.Passes:FindFirstChild(ttype) ~= nil
+    end
+
+    local function getTreadmillPart(preferred)
+        local best=nil; local bestMulti=-1
+        for _,part in CollectionService:GetTagged("Treadmill") do
+            if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+                local ttype = part:GetAttribute("Type") or part.Name
+                if not isTreadmillUnlocked(ttype) then continue end
+                local multi = TreadmillCfg.Multis[ttype] or 0
+                if preferred and ttype:lower()==preferred:lower() then return part end
+                if not preferred then
+                    if multi > bestMulti then bestMulti=multi; best=part end
+                end
+            end
+        end
+        if best then return best end
+        for _,part in CollectionService:GetTagged("Treadmill") do
+            if part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+                local ttype = part:GetAttribute("Type") or part.Name
+                if isTreadmillUnlocked(ttype) then return part end
+            end
+        end
+        return nil
+    end
+
+    local function startTrain()
+        runLoop("AutoTrain","AutoTrain","AutoTrain_Interval",function()
+            local useBest = Toggles["AutoTrain_Best"]
+            local sel = Options["TrainTreadmill_Select"] or "Basic"
+            local part = getTreadmillPart(if useBest then nil else sel)
+            if not part then return end
+            local hrp=LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            pcall(function() firetouchinterest(hrp, part, 0) end)
+            hrp.CFrame = part.CFrame + Vector3.new(0,5,0)
+            task.wait(0.15)
+            pcall(function() firetouchinterest(hrp, part, 1) end)
+        end)
+    end
+
+    Toggles["AutoTrain"] = false
+    LeftGroup:create_toggle("AutoTrain", {
+        title = "Auto Train on Treadmill",
+        default = false,
+        callback = function(state)
+            Toggles["AutoTrain"] = state
+            if state then startTrain() else stopLoop("AutoTrain") end
+        end
+    })
+
+    Options["AutoTrain_Interval"] = 5
+    LeftGroup:create_slider("AutoTrain_Interval", {
+        title = "Interval (s)", minimum = 5, maximum = 10, default = 5, rounding = true,
+        callback = function(value) Options["AutoTrain_Interval"] = value end
+    })
+
+    Toggles["AutoTrain_Best"] = true
+    LeftGroup:create_toggle("AutoTrain_Best", {
+        title = "Use Best UNLOCKED",
+        default = true,
+        callback = function(state)
+            Toggles["AutoTrain_Best"] = state
+            if Toggles["AutoTrain"] then stopLoop("AutoTrain"); task.wait(0.2); startTrain() end
+        end
+    })
+
+    local RightGroup = FarmTab:create_group("Wins & Collectables", "right")
+
+    local winOptions = {}
+    for world, stages in pairs(MainCfg.StageWins) do
+        for i, wins in ipairs(stages) do
+            table.insert(winOptions, string.format("%s Stage%d (%s wins)", world, i, Formatter.Format(wins)))
+        end
+    end
+    table.sort(winOptions)
+
+    local FixedWinPos={
+        World1={[1]=Vector3.new(-682.16,23.04,-255.05),[2]=Vector3.new(-935.66,23.04,-255.05),[3]=Vector3.new(-1214.16,23.04,-255.05),[4]=Vector3.new(-1569.16,23.04,-255.05),[5]=Vector3.new(-2183.16,118.04,-255.05),[6]=Vector3.new(-3046.41,118.04,-255.05),[7]=Vector3.new(-4318.16,277.04,-255.05),[8]=Vector3.new(-6158.66,277.04,-254.66),[9]=Vector3.new(-9459,399,-255)}, 
+        World2={[1]=Vector3.new(-735.16,23.04,-2565.05),[2]=Vector3.new(-1095.01,38.04,-2565.05),[3]=Vector3.new(-1880.16,-51.96,-2565.05),[4]=Vector3.new(-2400.16,55.34,-2565.05),[5]=Vector3.new(-3247.16,55.34,-2565.05),[6]=Vector3.new(-3605.38,55.34,-3697.49),[7]=Vector3.new(-3605.38,55.34,-4607.49),[8]=Vector3.new(-3605.38,55.34,-5827.49),[9]=Vector3.new(-3603,164,-9379)}, 
+        World3={[1]=Vector3.new(-684.16,22.54,2740.95),[2]=Vector3.new(-953.63,22.54,2740.95),[3]=Vector3.new(-1286.63,22.54,2740.95),[4]=Vector3.new(-1684.63,22.54,2740.95),[5]=Vector3.new(-2240.63,22.54,2740.95),[6]=Vector3.new(-2560.63,278.54,2740.95),[7]=Vector3.new(-4208.63,278.54,2740.95),[8]=Vector3.new(-5420.63,278.54,2740.95),[9]=Vector3.new(-8077.63,278.54,2740.95)}, 
+        World4={[1]=Vector3.new(-684.16,22.54,5740.95),[2]=Vector3.new(-892.16,22.54,5740.95),[3]=Vector3.new(-1206.66,22.54,5740.95),[4]=Vector3.new(-1592.66,22.54,5740.95),[5]=Vector3.new(-1852.06,172.54,5740.95),[6]=Vector3.new(-2718.06,172.54,5740.95),[7]=Vector3.new(-3933.06,172.54,5740.95),[8]=Vector3.new(-5663.06,17.50,5740.95),[9]=Vector3.new(-7760.11,17.50,5740.95)}, 
+        World5={[1]=Vector3.new(-684.16,22.54,7561.95),[2]=Vector3.new(-1005.16,22.54,7561.95),[3]=Vector3.new(-1333.16,22.54,7561.95),[4]=Vector3.new(-1778.15,103.54,7444.95),[5]=Vector3.new(-2369.24,103.54,7444.95),[6]=Vector3.new(-2828.45,283.54,7801.31)}
+    }
+
+    local function parseWinOption(opt)
+        local world, stage = opt:match("(%w+) Stage(%d+)")
+        return world, tonumber(stage)
+    end
+
+    local function getAllNormalWins(filterWorld)
+        local list={}
+        for _,m in workspace:GetDescendants() do
+            if m.Name=="NormalWin" and m:IsA("Model") then
+                local btn=m:FindFirstChild("Button")
+                if btn and btn:IsA("BasePart") and btn.BrickColor.Name=="New Yeller" then
+                    local path=m:GetFullName()
+                    local world = path:match("World%d") or "World1"
+                    if filterWorld and filterWorld~="All" and world ~= filterWorld then continue end
+                    local stage = 1
+                    local s = path:match("Stage(%d+)")
+                    if s then stage=tonumber(s) end
+                    local winsVal = 0
+                    if MainCfg.StageWins[world] and MainCfg.StageWins[world][stage] then winsVal=MainCfg.StageWins[world][stage] end
+                    table.insert(list, {part=btn, world=world, stage=stage, wins=winsVal, model=m})
+                end
+            end
+        end
+        return list
+    end
+
+    local function getManualTarget()
+        local opt = Options["AutoWins_Manual"] or winOptions[1]
+        local world, stage = parseWinOption(opt)
+        if not world then return nil end
+        if FixedWinPos[world] and FixedWinPos[world][stage] then
+            local pos=FixedWinPos[world][stage]
+            local bestPart=nil; local bestDist=80
+            for _,v in workspace:GetDescendants() do
+                if v:IsA("BasePart") and v.BrickColor.Name=="New Yeller" and v.Name=="Button" then
+                    local d=(v.Position - pos).Magnitude
+                    if d < bestDist then bestDist=d; bestPart=v end
+                end
+            end
+            if bestPart then
+                return {part=bestPart, world=world, stage=stage, wins=MainCfg.StageWins[world][stage] or 0, model=bestPart.Parent}
+            else
+                return {part={CFrame=CFrame.new(pos), Position=pos, BrickColor={Name="New Yeller"}, Name="Button", GetFullName=function() return "Fixed:"..world..stage end}, world=world, stage=stage, wins=MainCfg.StageWins[world][stage] or 0, isFixed=true}
+            end
+        end
+        for _,e in getAllNormalWins(world) do
+            if e.world==world and e.stage==stage then return e end
+        end
+        return nil
+    end
+
+    Toggles["AutoWins"] = false
+    RightGroup:create_toggle("AutoWins", {
+        title = "Auto Farm Wins",
+        default = false,
+        callback = function(state)
+            Toggles["AutoWins"] = state
+            if state then
+                runLoop("AutoWins","AutoWins","AutoWins_Interval",function()
+                    local targetEntry = getManualTarget()
+                    if not targetEntry or not targetEntry.part then return end
+                    local hrp=LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if not hrp then return end
+                    if targetEntry.isFixed then
+                        local pos = FixedWinPos[targetEntry.world] and FixedWinPos[targetEntry.world][targetEntry.stage] or targetEntry.part.Position
+                        hrp.CFrame = CFrame.new(pos + Vector3.new(0,5,0))
+                        local bestPart=nil; local bestDist=80
+                        for _,v in workspace:GetDescendants() do
+                            if v:IsA("BasePart") and v.BrickColor.Name=="New Yeller" and v.Name=="Button" then
+                                local d=(v.Position - pos).Magnitude
+                                if d < bestDist then bestDist=d; bestPart=v end
+                            end
+                        end
+                        if bestPart then
+                            pcall(function() firetouchinterest(hrp, bestPart, 0) task.wait(0.1) firetouchinterest(hrp, bestPart, 1) end)
+                        else
+                            pcall(function() firetouchinterest(hrp, targetEntry.part, 0) task.wait(0.1) firetouchinterest(hrp, targetEntry.part, 1) end)
+                        end
+                    else
+                        hrp.CFrame = targetEntry.part.CFrame + Vector3.new(0,3,0)
+                        pcall(function()
+                            firetouchinterest(hrp, targetEntry.part, 0)
+                            task.wait(0.1)
+                            firetouchinterest(hrp, targetEntry.part, 1)
+                        end)
+                    end
+                    task.wait(0.2)
+                end)
+            else stopLoop("AutoWins") end
+        end
+    })
+
+    Options["AutoWins_Manual"] = winOptions[1]
+    RightGroup:create_dropdown("AutoWins_Manual", {
+        title = "Target Win Pad",
+        options = winOptions,
+        default = winOptions[1],
+        callback = function(value) Options["AutoWins_Manual"] = value end
+    })
+
+    Toggles["AutoCollectBananas"] = false
+    RightGroup:create_toggle("AutoCollectBananas", {
+        title = "Auto Collect Bananas",
+        default = false,
+        callback = function(state)
+            Toggles["AutoCollectBananas"] = state
+            if state then
+                runLoop("AutoCollectBananas","AutoCollectBananas","AutoCollectBananas_Interval",function()
+                    for _,v in workspace:GetDescendants() do
+                        if v.Name:lower():find("banana") and v:IsA("BasePart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                            pcall(function()
+                                firetouchinterest(LocalPlayer.Character.HumanoidRootPart, v, 0)
+                                task.wait(0.05)
+                                firetouchinterest(LocalPlayer.Character.HumanoidRootPart, v, 1)
+                            end)
+                        end
+                    end
+                end)
+            else stopLoop("AutoCollectBananas") end
+        end
+    })
+
+    Toggles["AutoJoinRace"] = false
+    RightGroup:create_toggle("AutoJoinRace", {
+        title = "Auto Join Race",
+        default = false,
+        callback = function(state)
+            Toggles["AutoJoinRace"] = state
+            if state then
+                runLoop("AutoJoinRace","AutoJoinRace","AutoJoinRace_Interval",function()
+                    if Remotes:FindFirstChild("JoinRace") then safeFire(Remotes.JoinRace) end
+                end)
+            else stopLoop("AutoJoinRace") end
+        end
+    })
+    Options["AutoJoinRace_Interval"] = 2
+end
+
+-- FARMING > REWARDS
+do
+    local LeftGroup = RewardsTab:create_group("Claim Rewards", "left")
+
+    local rewardsList = {
+        {toggle="AutoClaimFreeReward", name="Free Reward", remote="ClaimFreeReward"},
+        {toggle="AutoClaimStreakReward", name="Streak Reward", remote="ClaimStreakReward"},
+        {toggle="AutoClaimOfflineEarnings", name="Offline Earnings", remote="ClaimOfflineEarnings"}
+    }
+
+    for _, r in ipairs(rewardsList) do
+        Toggles[r.toggle] = false
+        Options[r.toggle.."_Interval"] = 5
+        LeftGroup:create_toggle(r.toggle, {
+            title = "Auto " .. r.name,
+            default = false,
+            callback = function(state)
+                Toggles[r.toggle] = state
+                if state then
+                    runLoop(r.toggle, r.toggle, r.toggle.."_Interval", function()
+                        if Remotes:FindFirstChild(r.remote) then safeFire(Remotes[r.remote]) end
+                    end)
+                else stopLoop(r.toggle) end
+            end
+        })
+    end
+
+    Toggles["AutoRedeemCode"] = false
+    LeftGroup:create_toggle("AutoRedeemCode", {
+        title = "Auto Redeem Codes",
+        default = false,
+        callback = function(state)
+            Toggles["AutoRedeemCode"] = state
+            if state then
+                runLoop("AutoRedeemCode","AutoRedeemCode","AutoRedeemCode_Interval",function()
+                    local codes={"RELEASE","MONKEY","SPEED","WINS"}
+                    for _,code in ipairs(codes) do if Remotes:FindFirstChild("RedeemCode") then safeFire(Remotes.RedeemCode, code) end end
+                end)
+            else stopLoop("AutoRedeemCode") end
+        end
+    })
+    Options["AutoRedeemCode_Interval"] = 3
+
+    local RightGroup = RewardsTab:create_group("Chests & Spins", "right")
+
+    local otherRewards = {
+        {toggle="AutoSpinWheel", name="Auto Spin Wheel", fn=function() if Remotes:FindFirstChild("SpawnWheel") then safeFire(Remotes.SpawnWheel) end if Remotes:FindFirstChild("PlayLootBoxSpin") then safeFire(Remotes.PlayLootBoxSpin) end end},
+        {toggle="AutoOpenSkullChest", name="Auto Open Skull Chest", fn=function() if Remotes:FindFirstChild("OpenSkullChest") then safeFire(Remotes.OpenSkullChest, 1) end end},
+        {toggle="AutoOpenSecretChest", name="Auto Open Secret Chest", fn=function() if Remotes:FindFirstChild("OpenSecretChest") then safeFire(Remotes.OpenSecretChest, 1) end end}
+    }
+
+    for _, o in ipairs(otherRewards) do
+        Toggles[o.toggle] = false
+        Options[o.toggle.."_Interval"] = 2
+        RightGroup:create_toggle(o.toggle, {
+            title = o.name,
+            default = false,
+            callback = function(state)
+                Toggles[o.toggle] = state
+                if state then runLoop(o.toggle, o.toggle, o.toggle.."_Interval", o.fn) else stopLoop(o.toggle) end
+            end
+        })
+    end
+end
+
+-- INVENTORY > GEAR
+do
+    local LeftGroup = GearTab:create_group("Tails", "left")
+
+    local function getBestOwned()
+        local maxIdx=1
+        for _,v in Data.UnlockedUpgrades:GetChildren() do
+            local n=tonumber(v.Name)
+            if n and n>maxIdx then maxIdx=n end
+        end
+        return maxIdx
+    end
+
+    Toggles["AutoBuyTails"] = false
+    LeftGroup:create_toggle("AutoBuyTails", {
+        title = "Auto Buy Best Tail",
+        default = false,
+        callback = function(state)
+            Toggles["AutoBuyTails"] = state
+            if state then
+                runLoop("AutoBuyTails","AutoBuyTails","AutoBuyTails_Interval",function()
+                    local best=getBestOwned()
+                    if best and best ~= Data.SelectedUpgrade.Value then safeFire(Remotes.SelectUpgrade, best) end
+                end)
+            else stopLoop("AutoBuyTails") end
+        end
+    })
+    Options["AutoBuyTails_Interval"] = 1
+
+    Toggles["AutoEquipBestTails"] = false
+    LeftGroup:create_toggle("AutoEquipBestTails", {
+        title = "Auto Equip Best Tail",
+        default = false,
+        callback = function(state)
+            Toggles["AutoEquipBestTails"] = state
+            if state then
+                runLoop("AutoEquipBestTails","AutoEquipBestTails","AutoEquipBestTails_Interval",function()
+                    local best=getBestOwned()
+                    if best ~= Data.SelectedUpgrade.Value then safeFire(Remotes.SelectUpgrade, best) end
+                end)
+            else stopLoop("AutoEquipBestTails") end
+        end
+    })
+    Options["AutoEquipBestTails_Interval"] = 1
+
+    local RightGroup = GearTab:create_group("Trails & Auras", "right")
+    local Trails={"Red","Blue","Green","Rainbow","Galaxy","Divine","Fairy","Spectral","Yin Yang","Bloodmoon","Sakura","Flash","Void","Steampunk"}
+    local Auras={"Amber","Ice Cold","Nature","Rainbow","Lunar","Sparkle","Fairy","Spectral","Yin Yang","Bloodmoon","Sakura","Electric","Void","Steampunk"}
+
+    Toggles["AutoBuyTrail"] = false
+    RightGroup:create_toggle("AutoBuyTrail", {
+        title = "Auto Buy Trails",
+        default = false,
+        callback = function(state)
+            Toggles["AutoBuyTrail"] = state
+            if state then
+                runLoop("AutoBuyTrail","AutoBuyTrail","AutoBuyTrail_Interval",function()
+                    for _,name in ipairs(Trails) do
+                        if not Data.UnlockedTrails:FindFirstChild(name) then
+                            if Remotes:FindFirstChild("BuyTrail") then safeFire(Remotes.BuyTrail, name) end
+                            break
+                        end
+                    end
+                end)
+            else stopLoop("AutoBuyTrail") end
+        end
+    })
+    Options["AutoBuyTrail_Interval"] = 1
+
+    Toggles["AutoBuyAura"] = false
+    RightGroup:create_toggle("AutoBuyAura", {
+        title = "Auto Buy Auras",
+        default = false,
+        callback = function(state)
+            Toggles["AutoBuyAura"] = state
+            if state then
+                runLoop("AutoBuyAura","AutoBuyAura","AutoBuyAura_Interval",function()
+                    for _,name in ipairs(Auras) do
+                        if not Data.UnlockedAuras:FindFirstChild(name) then
+                            if Remotes:FindFirstChild("BuyAura") then safeFire(Remotes.BuyAura, name) end
+                            break
+                        end
+                    end
+                end)
+            else stopLoop("AutoBuyAura") end
+        end
+    })
+    Options["AutoBuyAura_Interval"] = 1
+end
+
+-- INVENTORY > CHARMS
+do
+    local LeftGroup = CharmsTab:create_group("Charms Management", "left")
+    local Charms={"Lucky Key","Treasure Coin","Emerald Talisman","Royal Crown","Lucky Idol","Monkey Paw","Banana Peel","Jungle Gem","Wind Feather","Vine Bracelet","Cheetah Totem","Swift Mask","Lava Drop","Hot Coal","Flame Skull","Magma Crystal","Phoenix Feather","Inferno Crown","Fire Boot","Flame Roller","Rocket Ember","Lava Lightning Bolt","Flaming Wing","Inferno Jetpack","Coconut","Starfish","Treasure Chest","Beach Bucket","Golden Pineapple","Sun Idol","Flip Flop","Sunglasses","Surfboard","Seagull Wing","Rocket Surfboard","Rainbow Wave","Gummy Bear","Candy Corn","Chocolate Bar","Lollipop","Giant Cupcake","Candy Castle","Peppermint","Candy Cane","Bubblegum Rocket","Sugar Star","Rainbow Candy Wing","Chocolate Mask","Snowflake","Ice Crystal","Frozen Chest","Snow Globe","Ice Crown","Glacier Core","Ice Skate","Frozen Feather","Blizzard Arrow","Snowboard","Frost Wing","Aurora Crystal"}
+
+    Options["AutoBuyCharm_Select"] = Charms[1]
+    LeftGroup:create_dropdown("AutoBuyCharm_Select", {
+        title = "Charm Target",
+        options = Charms,
+        default = Charms[1],
+        callback = function(value) Options["AutoBuyCharm_Select"] = value end
+    })
+
+    Toggles["AutoBuyCharm"] = false
+    LeftGroup:create_toggle("AutoBuyCharm", {
+        title = "Auto Buy Selected Charm",
+        default = false,
+        callback = function(state)
+            Toggles["AutoBuyCharm"] = state
+            if state then
+                runLoop("AutoBuyCharm","AutoBuyCharm","AutoBuyCharm_Interval",function()
+                    local selectedName = Options["AutoBuyCharm_Select"] or "Lucky Key"
+                    local worldShop = Data:FindFirstChild("CharmShop") and Data.CharmShop:FindFirstChild("World"..tostring(Data.World.Value))
+                    if not worldShop then return end
+                    for i=1,3 do
+                        local slot=worldShop:FindFirstChild("Slot"..i)
+                        local bought=worldShop:FindFirstChild("Bought"..i)
+                        if slot and slot:IsA("StringValue") and bought and not bought.Value then
+                            local name=slot.Value
+                            if name == selectedName and Remotes:FindFirstChild("BuyCharm") then
+                                safeFire(Remotes.BuyCharm, i)
+                                task.wait(0.6)
+                            end
+                        end
+                    end
+                end)
+            else stopLoop("AutoBuyCharm") end
+        end
+    })
+    Options["AutoBuyCharm_Interval"] = 1
+
+    local RightGroup = CharmsTab:create_group("Auto Fuse & Delete", "right")
+
+    Toggles["AutoEquipBestCharms"] = false
+    RightGroup:create_toggle("AutoEquipBestCharms", {
+        title = "Auto Equip Best Charms",
+        default = false,
+        callback = function(state)
+            Toggles["AutoEquipBestCharms"] = state
+            if state then
+                runLoop("AutoEquipBestCharms","AutoEquipBestCharms","AutoEquipBestCharms_Interval",function()
+                    if Remotes:FindFirstChild("EquipBestCharms") then safeFire(Remotes.EquipBestCharms, "Wins") end
+                end)
+            else stopLoop("AutoEquipBestCharms") end
+        end
+    })
+    Options["AutoEquipBestCharms_Interval"] = 1
+
+    Toggles["AutoFuseCharms"] = false
+    RightGroup:create_toggle("AutoFuseCharms", {
+        title = "Auto Fuse Charms",
+        default = false,
+        callback = function(state)
+            Toggles["AutoFuseCharms"] = state
+            if state then
+                runLoop("AutoFuseCharms","AutoFuseCharms","AutoFuseCharms_Interval",function()
+                    local charmsFolder = Data:FindFirstChild("Charms")
+                    if not charmsFolder then return end
+                    local byKey={}
+                    for _,c in ipairs(charmsFolder:GetChildren()) do
+                        local charmName = c:GetAttribute("CharmName") or c:GetAttribute("Name") or ""
+                        if charmName=="" then continue end
+                        if c:GetAttribute("Locked") then continue end
+                        local starVal = c:GetAttribute("Stars")
+                        if type(starVal)~="number" then starVal=0 end
+                        if starVal >= 3 then continue end
+                        local k = charmName.."_"..tostring(starVal)
+                        byKey[k] = byKey[k] or {}
+                        table.insert(byKey[k], c.Name)
+                    end
+                    for k, ids in pairs(byKey) do
+                        if #ids >= 3 then
+                            local toFuse={ids[1], ids[2], ids[3]}
+                            if Remotes:FindFirstChild("FuseCharms") then safeFire(Remotes.FuseCharms, toFuse) end
+                            return
+                        end
+                    end
+                end)
+            else stopLoop("AutoFuseCharms") end
+        end
+    })
+    Options["AutoFuseCharms_Interval"] = 1
+end
+
+-- SETTINGS
+do
+    local LeftGroup = SettingsTab:create_group("System Controls", "left")
+
+    Toggles["AntiAFK"] = true
+    LeftGroup:create_toggle("AntiAFK", {
+        title = "Anti-AFK",
+        default = true,
+        callback = function(state)
+            Toggles["AntiAFK"] = state
+            setAntiAFK(state)
+        end
+    })
+    setAntiAFK(true)
+
+    -- Anti Gameplay Paused
+    do
+        local COREGUI = game:GetService("CoreGui")
+        local networkPaused = nil
+        local function enableAntiPause()
+            pcall(function() if networkPaused then networkPaused:Disconnect() end end)
+            networkPaused = COREGUI.RobloxGui.ChildAdded:Connect(function(obj)
+                if obj.Name == "CoreScripts/NetworkPause" then pcall(function() obj:Destroy() end) end
+            end)
+            pcall(function()
+                local existing = COREGUI.RobloxGui:FindFirstChild("CoreScripts/NetworkPause") or COREGUI.RobloxGui:FindFirstChild("NetworkPause")
+                if existing then existing:Destroy() end
+                local cs = COREGUI.RobloxGui:FindFirstChild("CoreScripts")
+                if cs and cs:FindFirstChild("NetworkPause") then cs.NetworkPause:Destroy() end
+            end)
+        end
+        enableAntiPause()
+        task.spawn(function()
+            while true do
+                task.wait(5)
+                pcall(function()
+                    local np = COREGUI.RobloxGui:FindFirstChild("CoreScripts/NetworkPause")
+                    if np then np:Destroy() end
+                end)
+            end
+        end)
+    end
+
+    LeftGroup:create_keybind("MenuKeybind", {
+        title = "Menu Keybind",
+        default = Enum.KeyCode.RightShift,
+        callback = function() end
+    })
+end
+
+print(GameName .. " - Legacy Hub loaded successfully!")
