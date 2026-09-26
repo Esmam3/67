@@ -1,0 +1,1166 @@
+local STATE = STATE or {
+	onCleanup = function() end,
+	connect = function(signal, fn)
+		return signal:Connect(fn)
+	end,
+	namecallHook = function() end,
+	alive = function()
+		return true
+	end,
+}
+
+local Alive = true
+local Generation = (getgenv().OuroborosGeneration or 0) + 1
+getgenv().OuroborosGeneration = Generation
+local function alive()
+	return Alive and STATE.alive() and (getgenv().OuroborosGeneration or 0) == Generation
+end
+STATE.onCleanup(function()
+	Alive = false
+end)
+
+--// Legacy Hub UI Library Load
+local LoadOk, Library = pcall(function()
+	return loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/Angeli%20ui%20(1).txt"))()
+end)
+if not LoadOk or type(Library) ~= "table" then
+	warn("[Ouroboros] Legacy Hub UI failed to load: " .. tostring(Library))
+	return
+end
+
+local PreviousLibrary = getgenv().OuroborosLibrary
+if PreviousLibrary and PreviousLibrary ~= Library and PreviousLibrary.Unload then
+	pcall(function()
+		PreviousLibrary:Unload()
+	end)
+end
+getgenv().OuroborosLibrary = Library
+
+STATE.onCleanup(function()
+	pcall(function()
+		if Library.Unload then Library:Unload() end
+	end)
+	if getgenv().OuroborosLibrary == Library then
+		getgenv().OuroborosLibrary = nil
+	end
+end)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 15)
+if not Remotes then
+	warn("Remotes folder not found. Join the game first.")
+	return
+end
+
+local function waitRemote(name, parent)
+	local success, instance = pcall(function()
+		return (parent or Remotes):WaitForChild(name, 10)
+	end)
+	if success then
+		return instance
+	end
+	return nil
+end
+
+local PlaceEggRequest = waitRemote("PlaceEggRequest")
+local DropEggRequest = waitRemote("DropEggRequest")
+local SellRemote = waitRemote("Sell")
+local CoilsRemote = waitRemote("Coils")
+local TrailsRemote = waitRemote("Trails")
+local SquatTrainingRequest = waitRemote("SquatTrainingRequest")
+local StopSquattingRequest = waitRemote("StopSquattingRequest")
+local SquatBonusRequest = waitRemote("SquatBonusRequest")
+local OfflineRewardsRemote = waitRemote("OfflineRewards")
+local IndexRewardRemote = waitRemote("ClaimAnimalIndexReward")
+
+local Settings = ReplicatedStorage:FindFirstChild("Settings")
+local function requireSetting(name)
+	local module = Settings and Settings:FindFirstChild(name)
+	if not module then
+		return nil
+	end
+	local success, result = pcall(require, module)
+	if success then
+		return result
+	end
+	return nil
+end
+
+local Rarities = requireSetting("Rarities")
+local SpeedUpgrades = requireSetting("SpeedUpgrades")
+local TrailSettings = requireSetting("Trails")
+local BarbellUpgrades = requireSetting("BarbellUpgrades")
+local RecommendedJumps = requireSetting("RecommendedJumps")
+
+local ZoneJumpRequirements = { Meadow = 25 }
+if RecommendedJumps and type(RecommendedJumps.List) == "table" then
+	for key, value in pairs(RecommendedJumps.List) do
+		local zone = string.gsub(tostring(key), "%d+$", "")
+		local jump = tonumber(value)
+		if jump and (ZoneJumpRequirements[zone] == nil or jump < ZoneJumpRequirements[zone]) then
+			ZoneJumpRequirements[zone] = jump
+		end
+	end
+end
+
+local GameName = "Jump for Animals"
+
+local function getCharacter()
+	return LocalPlayer.Character
+end
+
+local function getHumanoid()
+	local character = getCharacter()
+	return character and character:FindFirstChildOfClass("Humanoid")
+end
+
+local function getRoot()
+	local character = getCharacter()
+	return character and character:FindFirstChild("HumanoidRootPart")
+end
+
+local function teleportTo(position)
+	local root = getRoot()
+	if root and position then
+		root.CFrame = CFrame.new(position + Vector3.new(0, 3, 0))
+		return true
+	end
+	return false
+end
+
+local function holderPosition(holder)
+	if not holder then
+		return nil
+	end
+	if holder:IsA("BasePart") then
+		return holder.Position
+	end
+	if holder:IsA("Attachment") then
+		return holder.WorldPosition
+	end
+	return nil
+end
+
+local function getPlot()
+	local plot = LocalPlayer:FindFirstChild("Plot")
+	return plot and plot.Value or nil
+end
+
+local function getSquatDetector()
+	local plot = getPlot()
+	local zone = plot and plot:FindFirstChild("SquatZone")
+	local floor = zone and zone:FindFirstChild("Floor")
+	return floor and floor:FindFirstChild("Detector") or nil
+end
+
+local function getPlacementDetector()
+	local plot = getPlot()
+	return plot and plot:FindFirstChild("Detector", true) or nil
+end
+
+local function getCash()
+	local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+	local cash = leaderstats and leaderstats:FindFirstChild("Cash")
+	local value = cash and cash:FindFirstChild("V")
+	return value and tonumber(value.Value) or 0
+end
+
+local function isPetTool(tool)
+	return tool:IsA("Tool") and tool:GetAttribute("IsPetInventoryTool") == true
+end
+
+local function isEggTool(tool)
+	return tool:IsA("Tool") and tool:GetAttribute("IsEggTool") == true
+end
+
+local function forEachContainer(fn)
+	local character = getCharacter()
+	if LocalPlayer.Backpack then
+		fn(LocalPlayer.Backpack)
+	end
+	if character then
+		fn(character)
+	end
+end
+
+local function findTool(predicate)
+	local found
+	forEachContainer(function(container)
+		if found then
+			return
+		end
+		for _, child in ipairs(container:GetChildren()) do
+			if child:IsA("Tool") and predicate(child) then
+				found = child
+				return
+			end
+		end
+	end)
+	return found
+end
+
+local function countEggTools()
+	local count = 0
+	forEachContainer(function(container)
+		for _, child in ipairs(container:GetChildren()) do
+			if isEggTool(child) then
+				count += 1
+			end
+		end
+	end)
+	return count
+end
+
+local function countReadyEggs()
+	local plot = getPlot()
+	local placed = plot and plot:FindFirstChild("PlacedEggs")
+	if not placed then
+		return 0
+	end
+	local ready = 0
+	for _, egg in ipairs(placed:GetChildren()) do
+		if egg:GetAttribute("HatchReady") == true then
+			ready += 1
+		end
+	end
+	return ready
+end
+
+local function uniqueAnimalNames()
+	local names = {}
+	local seen = {}
+	forEachContainer(function(container)
+		for _, child in ipairs(container:GetChildren()) do
+			if isPetTool(child) then
+				local name = child:GetAttribute("AnimalName") or child.Name
+				if not seen[name] then
+					seen[name] = true
+					table.insert(names, name)
+				end
+			end
+		end
+	end)
+	table.sort(names)
+	return names
+end
+
+--// UI Setup
+local Window = Library._new("Legacy Hub")
+local MainCategory = Window:create_category("Main")
+
+-- Force-Update Title Loop
+task.spawn(function()
+	while alive() do
+		local targets = { CoreGui, LocalPlayer:FindFirstChildOfClass("PlayerGui") }
+		for _, guiParent in ipairs(targets) do
+			if guiParent then
+				for _, obj in ipairs(guiParent:GetDescendants()) do
+					if (obj:IsA("TextLabel") or obj:IsA("TextButton")) and string.find(string.lower(obj.Text), "angeli") then
+						obj.Text = string.gsub(obj.Text, "[Aa]ngeli", "Legacy Hub")
+					end
+				end
+			end
+		end
+		task.wait(0.5)
+	end
+end)
+
+-- Options / Toggles Storage
+local Options = {
+	StealMode = { Value = "Best Egg" },
+	StealZones = { Value = {} },
+	StealRarities = { Value = {} },
+	StealDelay = { Value = 5 },
+	SellMode = { Value = "Lowest CPS First" },
+	AutoSellPet = { Value = "None" },
+	SellMaxCps = { Value = "1000" },
+	BuyCoilList = { Value = {} },
+	BuyTrailList = { Value = {} },
+	MutationMode = { Value = "Auto Select" },
+	MutationAnimal = { Value = "None" }
+}
+
+local Toggles = {
+	Godmode = { Value = false },
+	AutoTrain = { Value = false },
+	AutoSquatBonus = { Value = false },
+	AutoSteal = { Value = false },
+	AutoPlace = { Value = false },
+	AutoHatch = { Value = false },
+	AutoSell = { Value = false },
+	AutoOffline = { Value = false },
+	AutoIndex = { Value = false },
+	AutoBuyCoils = { Value = false },
+	AutoEquipCoil = { Value = false },
+	AutoBuyTrails = { Value = false },
+	AutoEquipTrail = { Value = false },
+	AutoBarbell = { Value = false },
+	AutoAddMutation = { Value = false },
+	AutoClaimMutation = { Value = false },
+	AutoReturnMutation = { Value = false },
+	AntiAFK = { Value = true }
+}
+
+--// Namecall Hook for Godmode Feature
+local rawNamecall
+rawNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+	local args = { ... }
+	local method = getnamecallmethod()
+
+	if Toggles.Godmode.Value and method == "FireServer" and self == DropEggRequest then
+		if args[1] == "GuardCatch" then
+			return nil
+		end
+	end
+
+	return rawNamecall(self, ...)
+end)
+
+local AnimalNames = uniqueAnimalNames()
+if #AnimalNames == 0 then
+	AnimalNames = { "None" }
+end
+
+-- TABS
+local MainTab = MainCategory:create_tab("Main")
+local FarmingTab = MainCategory:create_tab("Farming")
+local InventoryTab = MainCategory:create_tab("Inventory")
+local SettingsTab = MainCategory:create_tab("Settings")
+
+-- 1. Main Tab
+local MainLeft = MainTab:create_group("Session Stats", "left")
+MainLeft:create_button("GameInfo", {
+	title = "Game: " .. GameName,
+	callback = function() end
+})
+
+-- 2. Farming Tab
+local FarmingLeft = FarmingTab:create_group("Training & Stealing", "left")
+local FarmingRight = FarmingTab:create_group("Hatching, Selling & Rewards", "right")
+
+FarmingLeft:create_toggle("AutoTrain", {
+	title = "Auto Train Squats",
+	default = false,
+	callback = function(state)
+		Toggles.AutoTrain.Value = state
+		if state == false and LocalPlayer:GetAttribute("IsSquatting") == true and StopSquattingRequest then
+			StopSquattingRequest:FireServer()
+		end
+	end
+})
+
+FarmingLeft:create_toggle("AutoSquatBonus", {
+	title = "Auto Claim Squat Bonus",
+	default = false,
+	callback = function(state)
+		Toggles.AutoSquatBonus.Value = state
+	end
+})
+
+FarmingLeft:create_toggle("AutoSteal", {
+	title = "Auto Steal Eggs",
+	default = false,
+	callback = function(state)
+		Toggles.AutoSteal.Value = state
+	end
+})
+
+FarmingLeft:create_dropdown("StealMode", {
+	title = "Target Mode",
+	options = { "Best Egg", "Nearest Egg", "Highest Rarity" },
+	default = "Best Egg",
+	callback = function(value)
+		Options.StealMode.Value = value
+	end
+})
+
+FarmingLeft:create_slider("StealDelay", {
+	title = "Train Between Steals (s)",
+	minimum = 0,
+	maximum = 60,
+	default = 5,
+	rounding = true,
+	callback = function(value)
+		Options.StealDelay.Value = value
+	end
+})
+
+FarmingRight:create_toggle("AutoPlace", {
+	title = "Auto Place Stolen Eggs",
+	default = false,
+	callback = function(state)
+		Toggles.AutoPlace.Value = state
+	end
+})
+
+FarmingRight:create_toggle("AutoHatch", {
+	title = "Auto Hatch Ready Eggs",
+	default = false,
+	callback = function(state)
+		Toggles.AutoHatch.Value = state
+	end
+})
+
+FarmingRight:create_toggle("AutoSell", {
+	title = "Auto Sell Junk Pets",
+	default = false,
+	callback = function(state)
+		Toggles.AutoSell.Value = state
+	end
+})
+
+FarmingRight:create_dropdown("SellMode", {
+	title = "Sell Mode",
+	options = { "Lowest CPS First", "Chosen Pet" },
+	default = "Lowest CPS First",
+	callback = function(value)
+		Options.SellMode.Value = value
+	end
+})
+
+FarmingRight:create_dropdown("AutoSellPet", {
+	title = "Chosen Pet To Sell",
+	options = AnimalNames,
+	default = AnimalNames[1],
+	callback = function(value)
+		Options.AutoSellPet.Value = value
+	end
+})
+
+FarmingRight:create_toggle("AutoOffline", {
+	title = "Auto Claim Offline Cash",
+	default = false,
+	callback = function(state)
+		Toggles.AutoOffline.Value = state
+	end
+})
+
+FarmingRight:create_toggle("AutoIndex", {
+	title = "Auto Claim Animal Index Rewards",
+	default = false,
+	callback = function(state)
+		Toggles.AutoIndex.Value = state
+	end
+})
+
+-- 3. Inventory Tab
+local InventoryLeft = InventoryTab:create_group("Coils & Barbell", "left")
+local InventoryRight = InventoryTab:create_group("Trails & Mutation", "right")
+
+InventoryLeft:create_toggle("AutoBuyCoils", {
+	title = "Auto Buy Coils",
+	default = false,
+	callback = function(state)
+		Toggles.AutoBuyCoils.Value = state
+	end
+})
+
+InventoryLeft:create_toggle("AutoEquipCoil", {
+	title = "Auto Equip Best Coil",
+	default = false,
+	callback = function(state)
+		Toggles.AutoEquipCoil.Value = state
+	end
+})
+
+InventoryLeft:create_toggle("AutoBarbell", {
+	title = "Auto Upgrade Barbell",
+	default = false,
+	callback = function(state)
+		Toggles.AutoBarbell.Value = state
+	end
+})
+
+InventoryRight:create_toggle("AutoBuyTrails", {
+	title = "Auto Buy Trails",
+	default = false,
+	callback = function(state)
+		Toggles.AutoBuyTrails.Value = state
+	end
+})
+
+InventoryRight:create_toggle("AutoEquipTrail", {
+	title = "Auto Equip Best Trail",
+	default = false,
+	callback = function(state)
+		Toggles.AutoEquipTrail.Value = state
+	end
+})
+
+InventoryRight:create_toggle("AutoAddMutation", {
+	title = "Auto Add Pets To Mutation",
+	default = false,
+	callback = function(state)
+		Toggles.AutoAddMutation.Value = state
+	end
+})
+
+InventoryRight:create_dropdown("MutationMode", {
+	title = "Mutation Pet Choice Mode",
+	options = { "Auto Select", "Chosen Animal" },
+	default = "Auto Select",
+	callback = function(value)
+		Options.MutationMode.Value = value
+	end
+})
+
+InventoryRight:create_dropdown("MutationAnimal", {
+	title = "Chosen Animal Mutation",
+	options = AnimalNames,
+	default = AnimalNames[1],
+	callback = function(value)
+		Options.MutationAnimal.Value = value
+	end
+})
+
+InventoryRight:create_toggle("AutoClaimMutation", {
+	title = "Auto Claim Gold Mutation",
+	default = false,
+	callback = function(state)
+		Toggles.AutoClaimMutation.Value = state
+	end
+})
+
+InventoryRight:create_toggle("AutoReturnMutation", {
+	title = "Auto Return Mutation Pets",
+	default = false,
+	callback = function(state)
+		Toggles.AutoReturnMutation.Value = state
+	end
+})
+
+-- 4. Settings Tab
+local SettingsLeft = SettingsTab:create_group("General", "left")
+local SettingsRight = SettingsTab:create_group("Protections", "right")
+
+SettingsLeft:create_toggle("AntiAFK", {
+	title = "Anti-AFK",
+	default = true,
+	callback = function(state)
+		Toggles.AntiAFK.Value = state
+	end
+})
+
+SettingsLeft:create_keybind("MenuKeybind", {
+	title = "Menu Keybind",
+	default = Enum.KeyCode.RightShift,
+	callback = function() end
+})
+
+SettingsRight:create_toggle("Godmode", {
+	title = "Godmode (Block Guard Catch)",
+	default = false,
+	callback = function(state)
+		Toggles.Godmode.Value = state
+	end
+})
+
+-- Helper functions
+local function isSelected(selection, value)
+	if type(selection) ~= "table" or not next(selection) then
+		return true
+	end
+	return selection[value] == true
+end
+
+local function zoneReachable(zone)
+	local required = ZoneJumpRequirements[zone]
+	if required == nil then
+		return true
+	end
+	local jumpPower = LocalPlayer:FindFirstChild("JumpPower")
+	jumpPower = jumpPower and tonumber(jumpPower.Value) or 0
+	return jumpPower >= required
+end
+
+local function findEggPrompt(mode)
+	local map = workspace:FindFirstChild("Map")
+	local stages = map and map:FindFirstChild("Stages")
+	if not stages then
+		return nil, nil
+	end
+	local root = getRoot()
+	local origin = root and root.Position or Vector3.zero
+	local zoneFilter = Options.StealZones and Options.StealZones.Value or nil
+	local rarityFilter = Options.StealRarities and Options.StealRarities.Value or nil
+	local bestPrompt, bestScore, bestPosition
+	for _, stage in ipairs(stages:GetChildren()) do
+		local spawned = stage:FindFirstChild("SpawnedEggs")
+		if spawned and isSelected(zoneFilter, stage.Name) then
+			for _, egg in ipairs(spawned:GetChildren()) do
+				local rarity = egg:GetAttribute("Rarity")
+				if isSelected(rarityFilter, rarity) then
+					local prompt = egg:FindFirstChildWhichIsA("ProximityPrompt", true)
+					if prompt and prompt.Enabled then
+						local worldPosition = holderPosition(prompt.Parent)
+						if worldPosition then
+							local distance = (worldPosition - origin).Magnitude
+							local rarityIndex = 0
+							if Rarities and Rarities.GetIndex then
+								rarityIndex = Rarities.GetIndex(rarity) or 0
+							end
+							local score
+							if mode == "Nearest Egg" then
+								score = -distance
+							elseif mode == "Best Egg" then
+								if not zoneReachable(stage.Name) then
+									continue
+								end
+								score = rarityIndex * 1000000 - distance * 0.001
+							else
+								score = rarityIndex * 1000000 - distance * 0.001
+							end
+							if not bestScore or score > bestScore then
+								bestPrompt, bestScore, bestPosition = prompt, score, worldPosition
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return bestPrompt, bestPosition
+end
+
+local LastIndexClaim = 0
+local LastBarbellAction = 0
+local CarryWatchSince = nil
+local NextStealAt = 0
+local NextPlaceAttempt = 0
+local PlaceRotation = 0
+
+local function doCarryRecovery()
+	if not Toggles.AutoSteal.Value and not Toggles.AutoPlace.Value then
+		CarryWatchSince = nil
+		return
+	end
+	local carried = (tonumber(LocalPlayer:GetAttribute("CarriedEggCount")) or 0) > 0
+	local tool = findTool(isEggTool)
+	if carried and not tool then
+		local base = getPlacementDetector()
+		local root = getRoot()
+		if base and root and (root.Position - base.Position).Magnitude > 40 then
+			teleportTo(base.Position)
+			task.wait(0.4)
+		end
+		if not CarryWatchSince then
+			CarryWatchSince = os.clock()
+		elseif os.clock() - CarryWatchSince > 30 and DropEggRequest then
+			DropEggRequest:FireServer()
+			CarryWatchSince = os.clock()
+			task.wait(0.5)
+		end
+	else
+		CarryWatchSince = nil
+	end
+end
+
+local function doAutoTrain()
+	if not Toggles.AutoTrain.Value then
+		return
+	end
+	if Toggles.AutoHatch.Value and countReadyEggs() > 0 then
+		if LocalPlayer:GetAttribute("IsSquatting") == true and StopSquattingRequest then
+			StopSquattingRequest:FireServer()
+		end
+		return
+	end
+	if Toggles.AutoSteal.Value and (tonumber(LocalPlayer:GetAttribute("CarriedEggCount")) or 0) > 0 then
+		return
+	end
+	local detector = getSquatDetector()
+	local root = getRoot()
+	if not detector or not root then
+		return
+	end
+	if (root.Position - detector.Position).Magnitude > 10 then
+		teleportTo(detector.Position)
+		task.wait(0.3)
+	end
+	if LocalPlayer:GetAttribute("IsSquatting") ~= true and SquatTrainingRequest then
+		SquatTrainingRequest:FireServer(detector)
+		task.wait(0.25)
+	end
+end
+
+local LastBonusClaim = 0
+local function doAutoSquatBonus()
+	if not Toggles.AutoSquatBonus.Value or not SquatBonusRequest then
+		return
+	end
+	if LocalPlayer:GetAttribute("SquatBonusAvailable") ~= true then
+		return
+	end
+	if os.clock() - LastBonusClaim < 0.4 then
+		return
+	end
+	LastBonusClaim = os.clock()
+	local version = math.floor(tonumber(LocalPlayer:GetAttribute("SquatBonusVersion")) or 0)
+	SquatBonusRequest:FireServer(version)
+end
+
+local function doAutoPlace()
+	if not Toggles.AutoPlace.Value or not PlaceEggRequest then
+		return
+	end
+	if os.clock() < NextPlaceAttempt then
+		return
+	end
+	local list = {}
+	forEachContainer(function(container)
+		for _, child in ipairs(container:GetChildren()) do
+			if isEggTool(child) then
+				table.insert(list, child)
+			end
+		end
+	end)
+	if #list == 0 then
+		return
+	end
+	PlaceRotation += 1
+	local carrying = list[(PlaceRotation % #list) + 1]
+	local humanoid = getHumanoid()
+	local detector = getPlacementDetector()
+	if not humanoid or not detector then
+		return
+	end
+	NextPlaceAttempt = os.clock() + 2
+	pcall(function()
+		humanoid:EquipTool(carrying)
+	end)
+	task.wait(0.2)
+	PlaceEggRequest:FireServer(carrying:GetAttribute("EggId"), detector.Position + Vector3.new(0, 2, 0))
+	task.wait(0.35)
+	if not carrying.Parent then
+		local delay = Options.StealDelay and tonumber(Options.StealDelay.Value) or 5
+		NextStealAt = os.clock() + math.max(delay, 0)
+	end
+end
+
+local function doAutoSteal()
+	if not Toggles.AutoSteal.Value then
+		return
+	end
+	if os.clock() < NextStealAt then
+		return
+	end
+	if countEggTools() >= 3 then
+		return
+	end
+	if (tonumber(LocalPlayer:GetAttribute("CarriedEggCount")) or 0) > 0 then
+		return
+	end
+	local prompt, position = findEggPrompt(Options.StealMode.Value)
+	if not prompt or not position then
+		return
+	end
+	if LocalPlayer:GetAttribute("IsSquatting") == true and StopSquattingRequest then
+		StopSquattingRequest:FireServer()
+		local deadline = os.clock() + 1.5
+		while LocalPlayer:GetAttribute("IsSquatting") == true and os.clock() < deadline do
+			task.wait(0.15)
+		end
+	end
+	teleportTo(position)
+	task.wait(0.35)
+	if prompt.Enabled then
+		fireproximityprompt(prompt)
+	end
+	task.wait(0.4)
+	local base = getPlacementDetector()
+	if base then
+		teleportTo(base.Position)
+		task.wait(0.6)
+	end
+end
+
+local function doAutoHatch()
+	if not Toggles.AutoHatch.Value then
+		return
+	end
+	local plot = getPlot()
+	local placed = plot and plot:FindFirstChild("PlacedEggs")
+	if not placed then
+		return
+	end
+	for _, egg in ipairs(placed:GetChildren()) do
+		if egg:GetAttribute("HatchReady") == true then
+			local prompt = egg:FindFirstChildWhichIsA("ProximityPrompt", true)
+			if prompt and prompt.Enabled then
+				local position = holderPosition(prompt.Parent)
+				if position then
+					teleportTo(position)
+					task.wait(0.25)
+				end
+				fireproximityprompt(prompt)
+				task.wait(0.35)
+				return
+			end
+		end
+	end
+end
+
+local function findSellTarget()
+	local mode = Options.SellMode.Value
+	local chosen = Options.AutoSellPet.Value
+	local maxCps = tonumber(Options.SellMaxCps.Value) or 1000
+	local bestTool, bestCps
+	forEachContainer(function(container)
+		for _, child in ipairs(container:GetChildren()) do
+			if isPetTool(child) then
+				local name = child:GetAttribute("AnimalName") or child.Name
+				local cps = tonumber(child:GetAttribute("CashPerSecond")) or math.huge
+				if mode == "Chosen Pet" then
+					if name == chosen and (not bestCps or cps < bestCps) then
+						bestTool, bestCps = child, cps
+					end
+				elseif cps <= maxCps and (not bestCps or cps < bestCps) then
+					bestTool, bestCps = child, cps
+				end
+			end
+		end
+	end)
+	return bestTool
+end
+
+local function doAutoSell()
+	if not Toggles.AutoSell.Value then
+		return
+	end
+	if findTool(isEggTool) then
+		return
+	end
+	local tool = findSellTarget()
+	if not tool then
+		return
+	end
+	local humanoid = getHumanoid()
+	if not humanoid then
+		return
+	end
+	pcall(function()
+		humanoid:EquipTool(tool)
+	end)
+	local sellRoot = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Sell")
+	local detector = sellRoot and sellRoot:FindFirstChild("Detector", true)
+	if detector and detector:IsA("BasePart") then
+		teleportTo(detector.Position)
+		task.wait(0.3)
+	end
+	local prompt = detector and detector:FindFirstChild("SellAnimalPrompt", true)
+	if prompt and prompt.Enabled then
+		fireproximityprompt(prompt)
+	elseif SellRemote then
+		SellRemote:FireServer()
+	end
+	task.wait(0.4)
+end
+
+local function doAutoOffline()
+	if not Toggles.AutoOffline.Value or not OfflineRewardsRemote then
+		return
+	end
+	local pending = tonumber(LocalPlayer:GetAttribute("OfflineCashPending")) or 0
+	if pending > 0 then
+		OfflineRewardsRemote:FireServer("Claim")
+		task.wait(0.25)
+	end
+end
+
+local function doAutoIndex()
+	if not Toggles.AutoIndex.Value or not IndexRewardRemote then
+		return
+	end
+	if os.clock() - LastIndexClaim < 15 then
+		return
+	end
+	LastIndexClaim = os.clock()
+	IndexRewardRemote:FireServer("__ALL__")
+end
+
+local function ownedValue(folder, name)
+	local entry = folder and folder:FindFirstChild(name)
+	return entry and entry.Value == true
+end
+
+local function doAutoCoils()
+	local coilData = LocalPlayer:FindFirstChild("CoilData")
+	if not coilData or not CoilsRemote then
+		return
+	end
+	local owned = coilData:FindFirstChild("Owned")
+	local equipped = coilData:FindFirstChild("Equipped")
+	if Toggles.AutoBuyCoils.Value and SpeedUpgrades then
+		local selected = Options.BuyCoilList.Value
+		if type(selected) == "table" then
+			for name in pairs(selected) do
+				local config = SpeedUpgrades.Get(name)
+				if config and not ownedValue(owned, name) and getCash() >= config.Cost then
+					CoilsRemote:FireServer("Select", name)
+					task.wait(0.25)
+				end
+			end
+		end
+	end
+	if Toggles.AutoEquipCoil.Value and SpeedUpgrades and equipped then
+		local bestName, bestOrder = nil, -1
+		if owned then
+			for _, entry in ipairs(owned:GetChildren()) do
+				if entry.Value == true then
+					local config = SpeedUpgrades.Get(entry.Name)
+					local order = config and config.Order or 0
+					if order > bestOrder then
+						bestName, bestOrder = entry.Name, order
+					end
+				end
+			end
+		end
+		if bestName and equipped.Value ~= bestName then
+			CoilsRemote:FireServer("Select", bestName)
+			task.wait(0.2)
+		end
+	end
+end
+
+local function doAutoTrails()
+	local trailData = LocalPlayer:FindFirstChild("TrailData")
+	if not trailData or not TrailsRemote then
+		return
+	end
+	local owned = trailData:FindFirstChild("Owned")
+	local equipped = trailData:FindFirstChild("Equipped")
+	if Toggles.AutoBuyTrails.Value and TrailSettings then
+		local selected = Options.BuyTrailList.Value
+		if type(selected) == "table" then
+			for name in pairs(selected) do
+				local config = TrailSettings.Get(name)
+				if config and not ownedValue(owned, name) and getCash() >= config.Cost then
+					TrailsRemote:FireServer("Select", name)
+					task.wait(0.25)
+				end
+			end
+		end
+	end
+	if Toggles.AutoEquipTrail.Value and TrailSettings and equipped then
+		local bestName, bestOrder = nil, -1
+		if owned then
+			for _, entry in ipairs(owned:GetChildren()) do
+				if entry.Value == true then
+					local config = TrailSettings.Get(entry.Name)
+					local order = config and config.Order or 0
+					if order > bestOrder then
+						bestName, bestOrder = entry.Name, order
+					end
+				end
+			end
+		end
+		if bestName and equipped.Value ~= bestName then
+			TrailsRemote:FireServer("Select", bestName)
+			task.wait(0.2)
+		end
+	end
+end
+
+local function doAutoBarbell()
+	if not Toggles.AutoBarbell.Value or not BarbellUpgrades or not BarbellUpgrades.GetNext then
+		return
+	end
+	if os.clock() - LastBarbellAction < 3 then
+		return
+	end
+	LastBarbellAction = os.clock()
+	local level = LocalPlayer:FindFirstChild("BarbellLevel")
+	if not level then
+		return
+	end
+	local nextUpgrade = BarbellUpgrades.GetNext(math.max(math.floor(tonumber(level.Value) or 1), 1))
+	if not nextUpgrade then
+		return
+	end
+	local price = tonumber(nextUpgrade.CashPrice) or 0
+	if getCash() < price then
+		return
+	end
+	local plot = getPlot()
+	local zone = plot and plot:FindFirstChild("SquatZone")
+	local upgradeB = zone and zone:FindFirstChild("UpgradeB")
+	local prompt = upgradeB and upgradeB:FindFirstChild("BarbellUpgradePrompt", true)
+	if not prompt or not prompt.Enabled then
+		return
+	end
+	local position = holderPosition(prompt.Parent)
+	if position then
+		teleportTo(position)
+		task.wait(0.25)
+	end
+	fireproximityprompt(prompt)
+	task.wait(0.4)
+end
+
+local function findMutationPet(targetName)
+	local candidate, candidateCps
+	forEachContainer(function(container)
+		for _, child in ipairs(container:GetChildren()) do
+			if isPetTool(child) then
+				local name = child:GetAttribute("AnimalName") or child.Name
+				local cps = tonumber(child:GetAttribute("CashPerSecond")) or math.huge
+				if name == targetName and (not candidateCps or cps < candidateCps) then
+					candidate, candidateCps = child, cps
+				end
+			end
+		end
+	end)
+	return candidate
+end
+
+local function findDuplicateAnimal()
+	local counts, lowest = {}, {}
+	forEachContainer(function(container)
+		for _, child in ipairs(container:GetChildren()) do
+			if isPetTool(child) then
+				local name = child:GetAttribute("AnimalName") or child.Name
+				local cps = tonumber(child:GetAttribute("CashPerSecond")) or math.huge
+				counts[name] = (counts[name] or 0) + 1
+				if not lowest[name] or cps < lowest[name] then
+					lowest[name] = cps
+				end
+			end
+		end
+	end)
+	local bestName, bestCps
+	for name, count in pairs(counts) do
+		if count >= 2 and (not bestCps or lowest[name] < bestCps) then
+			bestName, bestCps = name, lowest[name]
+		end
+	end
+	return bestName
+end
+
+local function mutationPromptByName(name)
+	local map = workspace:FindFirstChild("Map")
+	local mutations = map and map:FindFirstChild("Mutations")
+	local detector = mutations and mutations:FindFirstChild("Detector")
+	local prompt = detector and detector:FindFirstChild(name, true)
+	return prompt, detector
+end
+
+local function fireMutation(name, detector)
+	local prompt = detector and detector:FindFirstChild(name, true)
+	if not prompt or not prompt.Enabled then
+		return false
+	end
+	local position = holderPosition(prompt.Parent)
+	if position then
+		teleportTo(position)
+		task.wait(0.2)
+	end
+	fireproximityprompt(prompt)
+	task.wait(0.35)
+	return true
+end
+
+local function doAutoMutation()
+	local active = LocalPlayer:GetAttribute("MutationCraftActive") == true
+	local ready = LocalPlayer:GetAttribute("MutationCraftReady") == true
+	local canRemove = LocalPlayer:GetAttribute("MutationCanRemove") == true
+	local _, detector = mutationPromptByName("MutationPrompt")
+	if Toggles.AutoClaimMutation.Value and active and ready then
+		fireMutation("MutationPrompt", detector)
+		return
+	end
+	if Toggles.AutoReturnMutation.Value and active and canRemove then
+		fireMutation("MutationRemovePrompt", detector)
+		return
+	end
+	if not Toggles.AutoAddMutation.Value or active then
+		return
+	end
+	local target = LocalPlayer:GetAttribute("MutationCraftAnimalName")
+	if type(target) ~= "string" or target == "" then
+		if Options.MutationMode.Value == "Chosen Animal" then
+			target = Options.MutationAnimal.Value
+		else
+			target = findDuplicateAnimal()
+		end
+	end
+	if not target or target == "None" then
+		return
+	end
+	local tool = findMutationPet(target)
+	if not tool then
+		return
+	end
+	local humanoid = getHumanoid()
+	if not humanoid then
+		return
+	end
+	pcall(function()
+		humanoid:EquipTool(tool)
+	end)
+	task.wait(0.2)
+	fireMutation("MutationPrompt", detector)
+end
+
+-- Loop execution tasks
+local function featureLoop(fn)
+	task.spawn(function()
+		while alive() do
+			local success, err = pcall(fn)
+			if not success and alive() then
+				warn("[Ouroboros] " .. tostring(err))
+			end
+			task.wait(0.5)
+		end
+	end)
+end
+
+featureLoop(function()
+	doCarryRecovery()
+	doAutoPlace()
+	doAutoSteal()
+	doAutoSell()
+	doAutoTrain()
+	doAutoSquatBonus()
+	doAutoHatch()
+	doAutoBarbell()
+end)
+
+featureLoop(function()
+	doAutoOffline()
+	doAutoIndex()
+	doAutoCoils()
+	doAutoTrails()
+end)
+
+task.spawn(function()
+	while alive() do
+		local success, err = pcall(doAutoMutation)
+		if not success and alive() then
+			warn("[Ouroboros] " .. tostring(err))
+		end
+		task.wait(6)
+	end
+end)
+
+task.spawn(function()
+	while alive() do
+		task.wait(300)
+		if alive() and Toggles.AntiAFK.Value then
+			pcall(function()
+				local humanoid = getHumanoid()
+				if humanoid then
+					humanoid.Jump = true
+				end
+				local virtualUser = game:GetService("VirtualUser")
+				virtualUser:CaptureController()
+				virtualUser:ClickButton2(Vector2.new())
+			end)
+		end
+	end
+end)
+
+print("Script loaded successfully as Legacy Hub!")
