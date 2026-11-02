@@ -34,7 +34,8 @@ LPH_JIT_MAX(function()
     return
   end
 
-  if not Enum.KeyCode[phantomConfig.Key] then
+  -- Fixed: Converted Key to uppercase
+  if not Enum.KeyCode[phantomConfig.Key:upper()] then
     return
   end
 
@@ -471,7 +472,8 @@ LPH_JIT_MAX(function()
 
     LPH_JIT_ULTRA(function()
       userInputService.InputBegan:Connect(function(input)
-        if phantomConfig.Enabled and input.KeyCode == Enum.KeyCode[phantomConfig.Key] then
+        -- Fixed: Converted Key to uppercase
+        if phantomConfig.Enabled and input.KeyCode == Enum.KeyCode[phantomConfig.Key:upper()] then
           if phantomConfig.Hold then
             flag2 = true
             flag = true
@@ -482,7 +484,8 @@ LPH_JIT_MAX(function()
       end)
 
       userInputService.InputEnded:Connect(function(input2)
-        if phantomConfig.Hold and input2.KeyCode == Enum.KeyCode[phantomConfig.Key] then
+        -- Fixed: Converted Key to uppercase
+        if phantomConfig.Hold and input2.KeyCode == Enum.KeyCode[phantomConfig.Key:upper()] then
           flag2 = false
           flag = false
         end
