@@ -1,0 +1,531 @@
+-- [ LeakD ] Luа Ѕcrірt Dеоbfuѕcаtеԁ Ву LеаκD
+-- [ Source ] https://discord.gg/hkQAMzyGum
+
+local userInputService = game:GetService("UserInputService")
+local players = game:GetService("Players")
+local runService = game:GetService("RunService")
+
+if not LPH_OBFUSCATED then
+  function LPH_JIT_MAX(...)
+    return ...
+  end
+
+  function LPH_JIT_ULTRA(...)
+    return ...
+  end
+
+  function LPH_NO_VIRTUALIZE(...)
+    return ...
+  end
+
+  function LPH_ENCRYPT(...)
+    return ...
+  end
+end
+
+LPH_JIT_MAX(function()
+  local phantomConfig = getgenv().PhantomConfig
+
+  if not phantomConfig then
+    return
+  end
+
+  if not phantomConfig.Key or phantomConfig.Key == "" then
+    return
+  end
+
+  if not Enum.KeyCode[phantomConfig.Key] then
+    return
+  end
+
+  LPH_NO_VIRTUALIZE(function()
+    local function f1()
+      for _, value in ipairs({ game.GetService, workspace.Raycast, Vector2.new }) do
+        if type(value) ~= "function" then
+          return false
+        end
+      end
+
+      return true
+    end
+
+    if not f1() then
+      return
+    end
+  end)()
+
+  LPH_JIT_ULTRA(function()
+    local currentCamera = workspace.CurrentCamera
+    local localPlayer = players.LocalPlayer
+    local flag = false
+    local v1 = 0
+    local flag2 = false
+
+    LPH_NO_VIRTUALIZE(function()
+      local function f2(parent)
+        if not parent then
+          return false
+        end
+
+        if parent:FindFirstChild("GRABBING_CONSTRAINT") then
+          return true
+        end
+
+        if parent:FindFirstChild("BodyEffects") then
+          local bodyEffects = parent.BodyEffects
+
+          if bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value then
+            return true
+          end
+
+          if bodyEffects:FindFirstChild("Knocked") and bodyEffects.Knocked.Value then
+            return true
+          end
+
+          if bodyEffects:FindFirstChild("Dead") and bodyEffects.Dead.Value then
+            return true
+          end
+
+          if bodyEffects:FindFirstChild("Downed") and bodyEffects.Downed.Value then
+            return true
+          end
+        end
+
+        if parent:FindFirstChild("Humanoid") then
+          local humanoid = parent.Humanoid
+
+          if humanoid.Health <= 0 then
+            return true
+          end
+
+          if humanoid.PlatformStand then
+            return true
+          end
+
+          if humanoid.Sit and humanoid.Health < humanoid.MaxHealth * 0.3 then
+            return true
+          end
+        end
+
+        if parent:FindFirstChild("Ragdoll") and parent.Ragdoll.Value then
+          return true
+        end
+
+        if parent:FindFirstChild("Down") and parent.Down.Value then
+          return true
+        end
+
+        if parent:FindFirstChild("Knocked") and parent.Knocked.Value then
+          return true
+        end
+
+        local torso = parent:FindFirstChild("Torso") or parent:FindFirstChild("UpperTorso")
+
+        if torso and torso:IsA("BasePart") and torso.Anchored and parent.Humanoid
+          and parent.Humanoid.Health > 0 then
+          return true
+        end
+
+        return false
+      end
+
+      getgenv().Phantom_GetTarget = function()
+        local getMouseLocation = userInputService:GetMouseLocation()
+
+        local viewportPointToRay = currentCamera:ViewportPointToRay(
+          getMouseLocation.X, getMouseLocation.Y
+        )
+
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+        raycastParams.FilterDescendantsInstances = { localPlayer.Character, currentCamera }
+        raycastParams.IgnoreWater = true
+
+        local raycast = workspace:Raycast(
+          viewportPointToRay.Origin, viewportPointToRay.Direction * 1000, raycastParams
+        )
+
+        if raycast and raycast.Instance then
+          local instance = raycast.Instance
+          local getPlayerFromCharacter
+          local parent2
+
+          if instance.Name == "Hitbox" or instance.Name == "HumanoidRootPart" then
+            parent2 = instance.Parent
+
+            if parent2 and parent2:IsA("Model") then
+              getPlayerFromCharacter = players:GetPlayerFromCharacter(parent2)
+            end
+          end
+
+          if not getPlayerFromCharacter then
+            parent2 = instance:FindFirstAncestorOfClass("Model")
+
+            if parent2 then
+              getPlayerFromCharacter = players:GetPlayerFromCharacter(parent2)
+            end
+          end
+
+          if not getPlayerFromCharacter and workspace:FindFirstChild("Hitboxes") then
+            for _, value2 in pairs(workspace.Hitboxes:GetChildren()) do
+              if value2 == instance or value2:IsAncestorOf(instance) then
+                local findFirstChild = players:FindFirstChild(value2.Name)
+
+                if findFirstChild and findFirstChild.Character then
+                  getPlayerFromCharacter = findFirstChild
+                  parent2 = findFirstChild.Character
+                  break
+                end
+              end
+            end
+          end
+
+          if not getPlayerFromCharacter then
+            for _, value3 in pairs(players:GetPlayers()) do
+              if value3 ~= localPlayer and value3.Character then
+                for _, value4 in pairs(value3.Character:GetDescendants()) do
+                  if value4 == instance then
+                    getPlayerFromCharacter = value3
+                    parent2 = value3.Character
+                    break
+                  end
+                end
+
+                if getPlayerFromCharacter then
+                  break
+                end
+              end
+            end
+          end
+
+          if getPlayerFromCharacter and getPlayerFromCharacter ~= localPlayer and parent2 then
+            if phantomConfig.CheckKnocked and f2(parent2) then
+              return nil
+            end
+
+            return getPlayerFromCharacter
+          end
+        end
+
+        return nil
+      end
+
+      getgenv().Phantom_HasKnife = function()
+        if not localPlayer.Character then
+          return false
+        end
+
+        local tool = localPlayer.Character:FindFirstChildOfClass("Tool")
+
+        if tool then
+          local lower = tool.Name:lower()
+          local knife = lower:find("knife")
+          local v2 = knife
+
+          if not knife then
+            local katana = lower:find("katana")
+            local v3 = katana
+
+            if not katana then
+              local bat = lower:find("bat")
+              local v4 = bat
+
+              if not bat then
+                local wrench = lower:find("wrench")
+                local v5 = wrench
+
+                if not wrench then
+                  local pipe = lower:find("pipe")
+
+                  local crowbar = pipe or lower:find("crowbar") or lower:find("sword")
+                    or lower:find("blade") or lower:find("melee") or lower:find("shank")
+                    or lower:find("dagger") or lower:find("sickle") or lower:find("axe")
+
+                  v5 = crowbar
+                end
+
+                v4 = v5
+              end
+
+              v3 = v4
+            end
+
+            v2 = v3
+          end
+
+          if v2 then
+            return true
+          end
+        end
+
+        if game.PlaceId == 2788229376 and localPlayer.Character:FindFirstChild("BodyEffects") then
+          local bodyEffects2 = localPlayer.Character.BodyEffects
+
+          if bodyEffects2:FindFirstChild("Attacking") and bodyEffects2.Attacking.Value then
+            return true
+          end
+        end
+
+-- https://discord.gg/hkQAMzyGum
+        return false
+      end
+
+      getgenv().Phantom_HasFood = function()
+        if not localPlayer.Character then
+          return false
+        end
+
+        local tool2 = localPlayer.Character:FindFirstChildOfClass("Tool")
+
+        if tool2 then
+          local lower2 = tool2.Name:lower()
+          local pizza = lower2:find("pizza")
+          local v6 = pizza
+
+          if not pizza then
+            local burger = lower2:find("burger")
+            local v7 = burger
+
+            if not burger then
+              local taco = lower2:find("taco")
+              local v8 = taco
+
+              if not taco then
+                local burrito = lower2:find("burrito")
+                local v9 = burrito
+
+                if not burrito then
+                  local sandwich = lower2:find("sandwich")
+                  local v10 = sandwich
+
+                  if not sandwich then
+                    local hotDog = lower2:find("hot dog")
+                    local v11 = hotDog
+
+                    if not hotDog then
+                      local hotdog = lower2:find("hotdog")
+                      local v12 = hotdog
+
+                      if not hotdog then
+                        local chips = lower2:find("chips")
+                        local v13 = chips
+
+                        if not chips then
+                          local doritos = lower2:find("doritos")
+                          local v14 = doritos
+
+                          if not doritos then
+                            local soda = lower2:find("soda")
+                            local v15 = soda
+
+                            if not soda then
+                              local cola = lower2:find("cola")
+                              local v16 = cola
+
+                              if not cola then
+                                local water = lower2:find("water")
+                                local v17 = water
+
+                                if not water then
+                                  local juice = lower2:find("juice")
+                                  local v18 = juice
+
+                                  if not juice then
+                                    local candy = lower2:find("candy")
+                                    local v19 = candy
+
+                                    if not candy then
+                                      local chocolate = lower2:find("chocolate")
+                                      local v20 = chocolate
+
+                                      if not chocolate then
+                                        local cookie = lower2:find("cookie")
+                                        local v21 = cookie
+
+                                        if not cookie then
+                                          local donut = lower2:find("donut")
+                                          local v22 = donut
+
+                                          if not donut then
+                                            local apple = lower2:find("apple")
+                                            local v23 = apple
+
+                                            if not apple then
+                                              local banana = lower2:find("banana")
+                                              local v24 = banana
+
+                                              if not banana then
+                                                local orange = lower2:find("orange")
+                                                local v25 = orange
+
+                                                if not orange then
+                                                  local fruit = lower2:find("fruit")
+                                                  local v26 = fruit
+
+                                                  if not fruit then
+                                                    local food = lower2:find("food")
+                                                    local v27 = food
+
+                                                    if not food then
+                                                      local drink = lower2:find("drink")
+                                                      local v28 = drink
+
+                                                      if not drink then
+                                                        local snack = lower2:find("snack")
+
+                                                        local meal = snack
+                                                          or lower2:find("meal")
+                                                          or lower2:find("lays")
+                                                          or lower2:find("cheetos")
+                                                          or lower2:find("fries")
+                                                          or lower2:find("bread")
+                                                          or lower2:find("cake")
+                                                          or lower2:find("icecream")
+                                                          or lower2:find("ice cream")
+
+                                                        v28 = meal
+                                                      end
+
+                                                      v27 = v28
+                                                    end
+
+                                                    v26 = v27
+                                                  end
+
+                                                  v25 = v26
+                                                end
+
+                                                v24 = v25
+                                              end
+
+                                              v23 = v24
+                                            end
+
+                                            v22 = v23
+                                          end
+
+                                          v21 = v22
+                                        end
+
+                                        v20 = v21
+                                      end
+
+                                      v19 = v20
+                                    end
+
+                                    v18 = v19
+                                  end
+
+                                  v17 = v18
+                                end
+
+                                v16 = v17
+                              end
+
+                              v15 = v16
+                            end
+
+                            v14 = v15
+                          end
+
+                          v13 = v14
+                        end
+
+                        v12 = v13
+                      end
+
+                      v11 = v12
+                    end
+
+                    v10 = v11
+                  end
+
+                  v9 = v10
+                end
+
+                v8 = v9
+              end
+
+              v7 = v8
+            end
+
+            v6 = v7
+          end
+
+          if v6 then
+            return true
+          end
+        end
+
+        if game.PlaceId == 2788229376 and localPlayer.Character:FindFirstChild("BodyEffects") then
+          local bodyEffects3 = localPlayer.Character.BodyEffects
+
+          if bodyEffects3:FindFirstChild("Eating") and bodyEffects3.Eating.Value then
+            return true
+          end
+        end
+
+        return false
+      end
+    end)()
+
+    LPH_JIT_ULTRA(function()
+      userInputService.InputBegan:Connect(function(input)
+        if phantomConfig.Enabled and input.KeyCode == Enum.KeyCode[phantomConfig.Key] then
+          if phantomConfig.Hold then
+            flag2 = true
+            flag = true
+          else
+            flag = not flag
+          end
+        end
+      end)
+
+      userInputService.InputEnded:Connect(function(input2)
+        if phantomConfig.Hold and input2.KeyCode == Enum.KeyCode[phantomConfig.Key] then
+          flag2 = false
+          flag = false
+        end
+      end)
+    end)()
+
+    LPH_JIT_MAX(function()
+      runService.RenderStepped:Connect(function()
+        if flag and phantomConfig.Enabled and (not phantomConfig.Hold or flag2) then
+          if phantomConfig.CheckKnife and getgenv().Phantom_HasKnife() then
+            return
+          end
+
+          if phantomConfig.CheckFood and getgenv().Phantom_HasFood() then
+            return
+          end
+
+          if getgenv().Phantom_GetTarget() and tick() - v1 > phantomConfig.Delay then
+            mouse1click()
+            v1 = tick()
+          end
+        end
+      end)
+    end)()
+
+    LPH_NO_VIRTUALIZE(function()
+      local genv = getgenv()
+
+      genv.Phantom = {
+        Config = phantomConfig,
+        Toggle = function() flag = not flag end,
+        Status = function() return flag end,
+        HasKnife = function() return getgenv().Phantom_HasKnife() end,
+        HasFood = function() return getgenv().Phantom_HasFood() end,
+      }
+    end)()
+  end)()
+end)()
+
+if getgenv().Phantom then
+  return true
+end
+
+return false
+
+-- https://discord.gg/hkQAMzyGum
