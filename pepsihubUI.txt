@@ -2589,27 +2589,13 @@ local function showToast(opts, kind)
 		Position = UDim2.fromOffset(offX, Toasts.Position:find("center") and (Toasts.Top and -24 or 24) or 0),
 		Parent = slot,
 	})
-	corner(13, card)
-	local cardStroke = stroke(card, 0.86)
-	local tint = kind.Slot
-	local bar = create("Frame", {
-		Name = "Edge",
-		BackgroundColor3 = tint or "AccentA",
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 10),
-		Size = UDim2.new(0, 3, 1, -20),
-		Parent = card,
-	})
-	corner(UDim.new(1, 0), bar)
-	if not tint then
-		gradient(bar, 90)
-	end
-	local tile = create("Frame", { Name = "Tile", Position = UDim2.fromOffset(14, 13), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = tint or "AccentA", Parent = card })
-	corner(10, tile)
-	if not tint then
-		gradient(tile, 45)
-	end
-	icon(tile, opts.Icon or kind.Icon, 18, Color3.new(1, 1, 1), { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+	corner(12, card)
+	local cardStroke = stroke(card, 0.9)
+	local tint = kind.Slot or "AccentA"
+	-- Soft tinted circle with the icon in the type's colour.
+	local tile = create("Frame", { Name = "Tile", Position = UDim2.fromOffset(14, 13), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = tint, BackgroundTransparency = 0.84, Parent = card })
+	corner(UDim.new(1, 0), tile)
+	icon(tile, opts.Icon or kind.Icon, 17, tint, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
 	text({ Parent = card, Text = opts.Title, Font = "SemiBold", Size = 14, Pos = UDim2.fromOffset(60, 12), Sz = UDim2.new(1, -110, 0, 18), Truncate = true })
 	text({ Parent = card, Text = "now", Font = "Medium", Size = 11, Color = "Dim", XAlign = Enum.TextXAlignment.Right, Anchor = Vector2.new(1, 0), Pos = UDim2.new(1, -34, 0, 13), Sz = UDim2.fromOffset(40, 16) })
 	if opts.Content ~= "" then
@@ -2639,18 +2625,15 @@ local function showToast(opts, kind)
 	local closeIcon = icon(closeButton, "x", 14, "Dim", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 6 })
 	local progress = create("Frame", {
 		Name = "Progress",
-		BackgroundColor3 = tint or "AccentA",
+		BackgroundColor3 = "Stroke",
 		BorderSizePixel = 0,
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 14, 1, -1),
 		Size = UDim2.new(1, -28, 0, 2),
-		BackgroundTransparency = 0.2,
+		BackgroundTransparency = 0.8,
 		Parent = card,
 	})
 	corner(UDim.new(1, 0), progress)
-	if not tint then
-		gradient(progress)
-	end
 	local hit = create("TextButton", { Name = "Hit", AutoButtonColor = false, Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 4, Parent = card })
 
 	local toast = { Slot = slot, Card = card, Closed = false }
@@ -2689,7 +2672,7 @@ local function showToast(opts, kind)
 			local button = create("TextButton", {
 				AutoButtonColor = false,
 				Text = "",
-				BackgroundColor3 = "Element",
+				BackgroundColor3 = primary and "AccentA" or "Element",
 				Size = UDim2.fromOffset(0, 26),
 				AutomaticSize = Enum.AutomaticSize.X,
 				LayoutOrder = i,
@@ -2698,9 +2681,7 @@ local function showToast(opts, kind)
 			})
 			corner(8, button)
 			padding(button, 0, 12, 0, 12)
-			if primary then
-				gradient(button)
-			else
+			if not primary then
 				stroke(button, 0.88)
 			end
 			text({ Parent = button, Text = tostring(b.Name or b.Title or "OK"), Font = "SemiBold", Size = 12, Color = primary and "OnAccent" or "Text", Auto = Enum.AutomaticSize.X, Sz = UDim2.fromOffset(0, 26), Z = 8 })
@@ -2720,7 +2701,7 @@ local function showToast(opts, kind)
 	end)
 	hit.MouseLeave:Connect(function()
 		paused = false
-		tween(cardStroke, { Transparency = 0.86 }, 0.15)
+		tween(cardStroke, { Transparency = 0.9 }, 0.15)
 		tween(closeIcon, { ImageColor3 = Theme.Dim }, 0.15)
 	end)
 	closeButton.Activated:Connect(function()
@@ -2782,7 +2763,8 @@ local function showToast(opts, kind)
 end
 
 -- Dynamic island: a pill at the top that grows into the message.
-local ISLAND_BG = rgb(8, 8, 11)
+local ISLAND_BG = rgb(6, 6, 8)
+local ISLAND_SMALL = 36
 local function islandFrame()
 	local o = overlay()
 	if Island.Frame and Island.Frame.Parent then
@@ -2792,30 +2774,33 @@ local function islandFrame()
 		Name = "Island",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, -50),
-		Size = UDim2.fromOffset(44, 36),
+		Size = UDim2.fromOffset(ISLAND_SMALL, ISLAND_SMALL),
 		BackgroundColor3 = ISLAND_BG,
 		ClipsDescendants = true,
 		Visible = false,
 		ZIndex = 45,
 		Parent = o.Root,
 	})
-	corner(UDim.new(0, 18), frame)
-	stroke(frame, 0.9, 1, Color3.new(1, 1, 1))
-	local tile = create("Frame", { Name = "Tile", Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = "AccentA", ZIndex = 46, Parent = frame })
+	local round = corner(UDim.new(0, ISLAND_SMALL / 2), frame)
+	stroke(frame, 0.92, 1, Color3.new(1, 1, 1))
+	-- The icon is the star: a round badge on the left that grows with the island.
+	local tile = create("Frame", { Name = "Tile", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 6, 0.5, 0), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = "AccentA", ZIndex = 46, Parent = frame })
 	corner(UDim.new(1, 0), tile)
-	local tileGradient = gradient(tile, 45)
 	local tileIcon = icon(tile, "bell", 13, Color3.new(1, 1, 1), { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 47 })
-	local title = text({ Parent = frame, Text = "", Font = "SemiBold", Size = 14, Color = Color3.new(1, 1, 1), Pos = UDim2.fromOffset(40, 9), Sz = UDim2.new(1, -56, 0, 18), Truncate = true, Z = 46 })
-	local body = text({ Parent = frame, Text = "", Size = 13, Color = rgb(172, 174, 190), Wrap = true, Rich = true, YAlign = Enum.TextYAlignment.Top, Pos = UDim2.fromOffset(40, 29), Sz = UDim2.new(1, -56, 0, 40), Z = 46 })
-	local line = create("Frame", { Name = "Line", BackgroundColor3 = "AccentA", BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -3), Size = UDim2.new(0, 0, 0, 2), ZIndex = 46, Parent = frame })
-	corner(UDim.new(1, 0), line)
-	local lineGradient = gradient(line)
+	local title = text({ Parent = frame, Text = "", Font = "SemiBold", Size = 15, Color = Color3.new(1, 1, 1), Pos = UDim2.fromOffset(70, 12), Sz = UDim2.new(1, -88, 0, 19), Truncate = true, Z = 46 })
+	local body = text({ Parent = frame, Text = "", Size = 13, Color = rgb(160, 162, 176), Wrap = true, Rich = true, YAlign = Enum.TextYAlignment.Top, Pos = UDim2.fromOffset(70, 33), Sz = UDim2.new(1, -88, 0, 40), Z = 46 })
 	local hit = create("TextButton", { AutoButtonColor = false, Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 48, Parent = frame })
 	hit.Activated:Connect(function()
 		Island.Skip = true
 	end)
-	Island.Frame, Island.Tile, Island.TileGradient, Island.Icon, Island.Title, Island.Body, Island.Line, Island.LineGradient = frame, tile, tileGradient, tileIcon, title, body, line, lineGradient
+	Island.Frame, Island.Corner, Island.Tile, Island.Icon, Island.Title, Island.Body = frame, round, tile, tileIcon, title, body
 	return frame
+end
+
+local function islandShape(big, time)
+	local size = big and 46 or 24
+	tween(Island.Tile, { Size = UDim2.fromOffset(size, size), Position = UDim2.new(0, big and 14 or 6, 0.5, 0) }, time, Enum.EasingStyle.Back)
+	tween(Island.Icon, { Size = UDim2.fromOffset(big and 24 or 13, big and 24 or 13) }, time, Enum.EasingStyle.Back)
 end
 
 local function runIsland()
@@ -2831,18 +2816,22 @@ local function runIsland()
 	task.spawn(function()
 		local frame = islandFrame()
 		local kind = opts.Kind
-		local accent = kind.Slot and Theme[kind.Slot] or nil
-		Island.TileGradient.Enabled = accent == nil
-		Island.LineGradient.Enabled = accent == nil
-		Island.Tile.BackgroundColor3 = accent or Color3.new(1, 1, 1)
-		Island.Line.BackgroundColor3 = accent or Color3.new(1, 1, 1)
+		local accent = kind.Slot and Theme[kind.Slot] or Theme.AccentA
+		Island.Tile.BackgroundColor3 = accent
+		Island.Icon.ImageColor3 = onColor(accent)
 		setIcon(Island.Icon, opts.Icon or kind.Icon)
 		Island.Title.Text = opts.Title
 		Island.Body.Text = opts.Content
-		local width = math.min(overlaySize().X - 24, 360)
-		local bodyH = opts.Content ~= "" and measure(opts.Content, 13, width - 56).Y + 4 or 0
-		Island.Body.Size = UDim2.new(1, -56, 0, bodyH)
-		local height = opts.Content ~= "" and (36 + bodyH + 10) or 36
+		-- Size: icon on the left, title and text to the side of it.
+		local width = math.min(overlaySize().X - 24, 380)
+		local textW = width - 70 - 18
+		local bodyH = opts.Content ~= "" and math.min(measure(opts.Content, 13, textW).Y + 2, 54) or 0
+		local block = 19 + (bodyH > 0 and (3 + bodyH) or 0)
+		local height = math.max(68, block + 26)
+		local textTop = math.floor((height - block) / 2)
+		Island.Title.Position = UDim2.fromOffset(70, textTop)
+		Island.Body.Position = UDim2.fromOffset(70, textTop + 22)
+		Island.Body.Size = UDim2.new(1, -88, 0, bodyH)
 		-- Sit under the top bar when it's in its usual place.
 		local top = Library.Mobile and 8 or 12
 		for _, w in ipairs(Library.Windows) do
@@ -2853,33 +2842,34 @@ local function runIsland()
 		end
 		Island.Title.TextTransparency = 1
 		Island.Body.TextTransparency = 1
-		Island.Line.Size = UDim2.new(0, 0, 0, 2)
 		if not frame.Visible then
 			frame.Visible = true
-			frame.Size = UDim2.fromOffset(36, 36)
+			frame.Size = UDim2.fromOffset(ISLAND_SMALL, ISLAND_SMALL)
 			frame.Position = UDim2.new(0.5, 0, 0, -44)
 			tween(frame, { Position = UDim2.new(0.5, 0, 0, top) }, 0.35, Enum.EasingStyle.Back)
 			task.wait(0.22)
 		end
 		tween(frame, { Size = UDim2.fromOffset(width, height) }, 0.5, Enum.EasingStyle.Back)
-		task.wait(0.18)
+		tween(Island.Corner, { CornerRadius = UDim.new(0, math.min(height / 2, 34)) }, 0.5)
+		islandShape(true, 0.5)
+		task.wait(0.2)
 		tween(Island.Title, { TextTransparency = 0 }, 0.2)
 		tween(Island.Body, { TextTransparency = 0 }, 0.25)
-		tween(Island.Line, { Size = UDim2.new(1, -36, 0, 2) }, 0.3)
 		local hold = #Island.Queue > 0 and math.min(opts.Duration, 2.2) or opts.Duration
 		local start = os.clock()
-		tween(Island.Line, { Size = UDim2.new(0, 0, 0, 2) }, hold, Enum.EasingStyle.Linear)
 		while os.clock() - start < hold and not Island.Skip and not Library.Unloaded do
 			task.wait(0.05)
 		end
 		tween(Island.Title, { TextTransparency = 1 }, 0.15)
 		tween(Island.Body, { TextTransparency = 1 }, 0.15)
 		task.wait(0.12)
+		islandShape(false, 0.3)
+		tween(Island.Corner, { CornerRadius = UDim.new(0, ISLAND_SMALL / 2) }, 0.3)
 		if #Island.Queue > 0 then
-			tween(frame, { Size = UDim2.fromOffset(120, 36) }, 0.3)
+			tween(frame, { Size = UDim2.fromOffset(120, ISLAND_SMALL) }, 0.3)
 			task.wait(0.25)
 		else
-			tween(frame, { Size = UDim2.fromOffset(36, 36) }, 0.35)
+			tween(frame, { Size = UDim2.fromOffset(ISLAND_SMALL, ISLAND_SMALL) }, 0.35)
 			task.wait(0.28)
 			tween(frame, { Position = UDim2.new(0.5, 0, 0, -44) }, 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 			task.wait(0.3)
@@ -5842,15 +5832,8 @@ function Window:_moveTabHighlight(instant)
 		hl.Position = target
 		hl.Size = UDim2.new(1, -20, 0, TAB_H)
 	else
-		-- Stretch towards the new tab, then settle: feels like it's being pulled.
-		local from = hl.Position.Y.Offset
-		local top, bottom = math.min(from, y), math.max(from, y) + TAB_H
-		tween(hl, { Position = UDim2.fromOffset(10, top), Size = UDim2.new(1, -20, 0, bottom - top) }, 0.14, Enum.EasingStyle.Quad)
-		task.delay(0.14, function()
-			if self.CurrentTab == tab then
-				tween(hl, { Position = target, Size = UDim2.new(1, -20, 0, TAB_H) }, 0.3, Enum.EasingStyle.Back)
-			end
-		end)
+		-- Glide straight to the new tab at its own size (it never covers the tabs in between).
+		tween(hl, { Position = target, Size = UDim2.new(1, -20, 0, TAB_H) }, 0.32, Enum.EasingStyle.Quint)
 	end
 	tween(self.HighlightBar, { Size = UDim2.fromOffset(3, 0) }, 0.08)
 	task.delay(0.16, function()
@@ -5887,15 +5870,7 @@ function Window:_moveTopHighlight(instant)
 		hl.Position = UDim2.fromOffset(x, y)
 		hl.Size = UDim2.fromOffset(w, 30)
 	else
-		-- Stretch over to the new pill, then settle.
-		local fromX, fromW = hl.Position.X.Offset, hl.Size.X.Offset
-		local left, right = math.min(fromX, x), math.max(fromX + fromW, x + w)
-		tween(hl, { Position = UDim2.fromOffset(left, y), Size = UDim2.fromOffset(right - left, 30) }, 0.14, Enum.EasingStyle.Quad)
-		task.delay(0.14, function()
-			if self.CurrentTab == tab then
-				tween(hl, { Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, 30) }, 0.32, Enum.EasingStyle.Back)
-			end
-		end)
+		tween(hl, { Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, 30) }, 0.32, Enum.EasingStyle.Quint)
 	end
 	task.defer(function()
 		if self.Nav == "Top" and tab.TopPill.Parent then
