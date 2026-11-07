@@ -353,15 +353,16 @@ local DefaultTheme = {
 -- Presets only list what they change; everything else comes from the Pepsi look.
 local Themes = {
 	Pepsi = {},
-	-- Winter evergreen with a cranberry accent and a warm gold second accent. Gentle snow falls
+	-- Evergreen with a Christmas red accent and a holly green second accent. Gentle snow falls
 	-- behind the content while this theme is on (Settings > Motion > Snowfall).
 	Christmas = {
-		AccentA = rgb(216, 66, 72), AccentB = rgb(234, 184, 96),
-		Background = rgb(11, 16, 14), Sidebar = rgb(13, 19, 17), Section = rgb(17, 25, 22),
-		Element = rgb(25, 35, 31), ElementHover = rgb(32, 44, 39), Field = rgb(12, 18, 15),
-		Text = rgb(242, 238, 230), SubText = rgb(162, 172, 162), Dim = rgb(100, 112, 104),
-		Success = rgb(86, 204, 124), Warning = rgb(240, 186, 90), Error = rgb(236, 82, 82),
+		AccentA = rgb(222, 52, 62), AccentB = rgb(36, 168, 88),
+		Background = rgb(9, 21, 16), Sidebar = rgb(11, 25, 19), Section = rgb(14, 30, 23),
+		Element = rgb(21, 41, 32), ElementHover = rgb(28, 51, 40), Field = rgb(9, 20, 15),
+		Text = rgb(244, 241, 234), SubText = rgb(162, 182, 168), Dim = rgb(98, 120, 106),
+		Success = rgb(58, 200, 110), Warning = rgb(242, 190, 82), Error = rgb(240, 80, 80),
 	},
+
 	Midnight = {
 		AccentA = rgb(92, 140, 255), AccentB = rgb(156, 92, 255),
 		Background = rgb(9, 10, 18), Sidebar = rgb(12, 13, 24), Section = rgb(16, 18, 32),
@@ -551,6 +552,20 @@ local function accentSequence(a, b)
 	if not Settings.Gradient and (a or "AccentA") == "AccentA" and (b or "AccentB") == "AccentB" then
 		cb = ca
 	end
+	-- A straight RGB blend between far-apart hues (red and green) goes muddy brown in the middle,
+	-- so those pairs keep each colour solid and only blend over a short stretch in the centre.
+	local h1, s1 = ca:ToHSV()
+	local h2, s2 = cb:ToHSV()
+	local dh = math.abs(h2 - h1)
+	dh = math.min(dh, 1 - dh)
+	if dh > 0.2 and s1 > 0.25 and s2 > 0.25 then
+		return ColorSequence.new({
+			ColorSequenceKeypoint.new(0, ca),
+			ColorSequenceKeypoint.new(0.4, ca),
+			ColorSequenceKeypoint.new(0.6, cb),
+			ColorSequenceKeypoint.new(1, cb),
+		})
+	end
 	return ColorSequence.new(ca, cb)
 end
 
@@ -613,7 +628,35 @@ end
 -- ======================================================================
 -- Tweening (respects the animation settings)
 -- ======================================================================
+-- While a theme change is being painted, the per-object theme tweens are kept here. If an element's own
+-- painter then sets a colour itself (a switch knob that is white while on, the selected segment's text),
+-- the theme tween is finished instantly first so it can't fade the element back to its base slot colour.
+local ThemeTweens = nil
+local function settleThemeTween(object)
+	local entry = ThemeTweens and ThemeTweens[object]
+	if entry then
+		ThemeTweens[object] = nil
+		pcall(function()
+			entry.Tween:Cancel()
+		end)
+		for k, v in pairs(entry.Props) do
+			pcall(function()
+				object[k] = v
+			end)
+		end
+	end
+end
+-- Anything a painter sets itself is owned by that painter from now on, not by a theme slot.
+local function takeOver(object, props)
+	settleThemeTween(object)
+	for k in pairs(props) do
+		unbind(object, k)
+	end
+end
 local function setProps(object, props)
+	if ThemeTweens then
+		takeOver(object, props)
+	end
 	for k, v in pairs(props) do
 		local ok, err = pcall(function()
 			object[k] = v
@@ -627,6 +670,9 @@ end
 local function tween(object, props, time, style, direction, repeatCount, reverses)
 	if object == nil then
 		return
+	end
+	if ThemeTweens then
+		takeOver(object, props)
 	end
 	time = (time or 0.22) / math.max(0.1, Settings.AnimSpeed)
 	if not Settings.Animations or time <= 0.001 then
@@ -1749,12 +1795,53 @@ local function applyTheme(smooth)
 			end
 		end
 	end
+	local running = {}
 	for object, props in pairs(pending) do
-		paint(object, props, smooth, 0.3)
+		local t = smooth and tween(object, props, 0.3) or nil
+		if t then
+			running[object] = { Tween = t, Props = props }
+		elseif not smooth then
+			setProps(object, props)
+		end
 	end
 	applyGradients()
+	-- Remember where each tweening object is now, so we can tell which ones a painter set by hand.
+	local before = {}
+	for object, entry in pairs(running) do
+		local snap = {}
+		for prop in pairs(entry.Props) do
+			snap[prop] = object[prop]
+		end
+		before[object] = snap
+	end
+	ThemeTweens = running
 	for _, fn in ipairs(Painters) do
 		safeCall(fn, smooth)
+	end
+	ThemeTweens = nil
+	-- A painter that set a colour directly (switch knob, selected segment text) owns that colour:
+	-- stop the theme tween so it can't fade it back, and finish the object's other colours now.
+	for object, entry in pairs(running) do
+		local snap = before[object]
+		local touched = nil
+		for prop in pairs(entry.Props) do
+			if object[prop] ~= snap[prop] then
+				touched = touched or {}
+				touched[prop] = true
+			end
+		end
+		if touched then
+			pcall(function()
+				entry.Tween:Cancel()
+			end)
+			for prop, value in pairs(entry.Props) do
+				if not touched[prop] then
+					pcall(function()
+						object[prop] = value
+					end)
+				end
+			end
+		end
 	end
 	Library.ThemeChanged:Fire()
 end
@@ -3273,8 +3360,8 @@ local function iconButton(parent, name, glyph, size, onClick, opts)
 		safeCall(onClick)
 	end)
 	painter(function()
-		b.BackgroundColor3 = Theme.Element
-		img.ImageColor3 = Theme.SubText
+		setProps(b, { BackgroundColor3 = Theme.Element })
+		setProps(img, { ImageColor3 = Theme.SubText })
 	end)
 	if opts.Tooltip then
 		attachTooltip(b, opts.Tooltip)
@@ -7640,9 +7727,7 @@ function Section:Toggle(opts)
 				end
 			end)
 		else
-			knob.Size = UDim2.fromOffset(18, 18)
-			knob.Position = UDim2.new(0, x, 0.5, 0)
-			knob.BackgroundColor3 = color
+			setProps(knob, { Size = UDim2.fromOffset(18, 18), Position = UDim2.new(0, x, 0.5, 0), BackgroundColor3 = color })
 			shadow.Size = UDim2.fromOffset(18, 18)
 			shadow.Position = UDim2.new(0, x, 0.5, 1)
 		end
