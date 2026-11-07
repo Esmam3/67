@@ -1,17 +1,19 @@
 --[[
-	Pepsi UI v2
+	Pepsi UI v2.1
 	The Pepsi Hub interface library. PC and mobile, fully themeable, animated, with sounds.
 
 	-------------------------------------------------------------------------
 	Quick start
 	-------------------------------------------------------------------------
-	local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/PepsiUI_Demo.txt%20(1)"))()
+	local UI = loadstring(game:HttpGet("<your Pepsi UI link>"))()
 
 	local Window = UI:CreateWindow({
 		Title = "Pepsi Hub",          -- big name in the sidebar
 		Subtitle = "Blox Fruits",     -- small text under it
-		Logo = 123456,                -- asset id, icon name or function(parent, size)
+		Badge = "Free",               -- optional little chip after the name
+		Logo = 123456,                -- leave out for the Pepsi Hub logo; asset id or icon name
 		ToggleKey = Enum.KeyCode.RightControl,
+		Navigation = "Sidebar",       -- tabs down the side, or "Top" (users can switch in Settings)
 	})
 
 	local Main = Window:Tab({ Name = "Main", Icon = "house", Description = "Farming and stuff" })
@@ -33,7 +35,7 @@
 	Tab:SubTab("Name") / Tab:Page("Name")         -> Tab (pill bar on top)
 	Tab:Section({ Name, Icon, Description, Side = "Left"/"Right"/"Full",
 	              Collapsible, Collapsed, Badge })  -> Section
-	Tab:TabBox({ Side }) -> TabBox ; TabBox:Tab("Name") -> Section
+	Tab:TabBox({ Side }) -> TabBox ; TabBox:Tab("Name") -> Section   (tabs are the card header)
 	Toggle:Settings() -> Section that slides open under the toggle (gear icon)
 	Section:Group({ DependsOn = element, Value = true }) -> Section that shows only when the
 	                                                      element has that value
@@ -41,7 +43,8 @@
 	-------------------------------------------------------------------------
 	Elements (all take Name, Description, Tooltip, Flag, Callback, Default)
 	-------------------------------------------------------------------------
-	:Toggle({ Style = "Switch"/"Checkbox", Risky })  :AddKeybind{} :AddColorpicker{}
+	:Toggle({ Style = "Checkbox"/"Switch", Risky })  :AddKeybind{} :AddColorpicker{}
+	        (no Style = follows the "Toggles" setting in Settings, a switch by default)
 	:Slider({ Min, Max, Default, Increment, Suffix, Prefix, Format = function(v) end })
 	:RangeSlider({ Min, Max, Default = { a, b }, Increment, MinGap, Suffix })
 	:Dropdown({ Options, Default, Multi, Search, AllowNull, Icons, Players = true })
@@ -108,7 +111,7 @@ local LocalPlayer = Players.LocalPlayer
 local rgb = Color3.fromRGB
 
 local Library = {
-	Version = "2.0.0",
+	Version = "2.1.0",
 	Flags = {},
 	Options = {},
 	Toggles = {},
@@ -128,9 +131,12 @@ Library.__index = Library
 local Settings = {
 	Theme = "Pepsi",
 	Font = "Builder Sans",
+	Navigation = "Sidebar",
+	ToggleStyle = "Switch",
+	Onboarded = false,
 	Roundness = 1,
-	Transparency = 0,
-	Gradient = true,
+	Transparency = 0.35,
+	Gradient = false,
 	Animations = true,
 	AnimSpeed = 1,
 	SmoothDrag = true,
@@ -325,18 +331,19 @@ local ThemeSlots = {
 Library.ThemeSlots = ThemeSlots
 
 local DefaultTheme = {
-	AccentA = rgb(255, 56, 96),
-	AccentB = rgb(70, 110, 255),
-	Background = rgb(11, 11, 16),
-	Sidebar = rgb(14, 14, 20),
-	Section = rgb(18, 18, 26),
-	Element = rgb(25, 25, 35),
-	ElementHover = rgb(32, 32, 45),
-	Field = rgb(13, 13, 19),
+	-- One clean Pepsi blue. Turn on "Gradient accents" in Settings to blend in Accent 2.
+	AccentA = rgb(38, 110, 255),
+	AccentB = rgb(0, 174, 255),
+	Background = rgb(11, 11, 14),
+	Sidebar = rgb(15, 15, 19),
+	Section = rgb(19, 19, 24),
+	Element = rgb(31, 31, 38),
+	ElementHover = rgb(40, 40, 49),
+	Field = rgb(14, 14, 18),
 	Stroke = rgb(255, 255, 255),
-	Text = rgb(238, 239, 245),
-	SubText = rgb(140, 143, 162),
-	Dim = rgb(88, 90, 108),
+	Text = rgb(242, 242, 246),
+	SubText = rgb(150, 151, 164),
+	Dim = rgb(94, 95, 108),
 	Success = rgb(62, 214, 128),
 	Warning = rgb(255, 184, 64),
 	Error = rgb(255, 76, 76),
@@ -356,7 +363,7 @@ local Themes = {
 		Element = rgb(17, 17, 22), ElementHover = rgb(25, 25, 32), Field = rgb(6, 6, 8),
 	},
 	Light = {
-		AccentA = rgb(236, 38, 82), AccentB = rgb(52, 100, 245),
+		AccentA = rgb(20, 92, 235), AccentB = rgb(0, 150, 240),
 		Background = rgb(241, 242, 247), Sidebar = rgb(233, 235, 242), Section = rgb(255, 255, 255),
 		Element = rgb(244, 245, 250), ElementHover = rgb(234, 236, 244), Field = rgb(230, 232, 240),
 		Stroke = rgb(0, 0, 0), Text = rgb(22, 24, 33), SubText = rgb(96, 100, 120), Dim = rgb(150, 154, 172),
@@ -416,10 +423,10 @@ local Themes = {
 		Element = rgb(19, 21, 36), ElementHover = rgb(26, 28, 48), Field = rgb(8, 9, 16),
 	},
 	Mono = {
-		AccentA = rgb(236, 236, 244), AccentB = rgb(150, 150, 170),
-		Background = rgb(12, 12, 12), Sidebar = rgb(16, 16, 16), Section = rgb(21, 21, 21),
-		Element = rgb(29, 29, 29), ElementHover = rgb(38, 38, 38), Field = rgb(14, 14, 14),
-		SubText = rgb(150, 150, 150), Dim = rgb(96, 96, 96),
+		AccentA = rgb(236, 236, 242), AccentB = rgb(176, 176, 188),
+		Background = rgb(10, 10, 10), Sidebar = rgb(14, 14, 14), Section = rgb(18, 18, 18),
+		Element = rgb(30, 30, 30), ElementHover = rgb(40, 40, 40), Field = rgb(13, 13, 13),
+		SubText = rgb(150, 150, 150), Dim = rgb(92, 92, 92),
 	},
 }
 Library.Themes = Themes
@@ -1314,7 +1321,7 @@ end
 -- A soft round glow made of stacked circles (no image assets needed). `strength` is how
 -- strong the centre gets once every ring is stacked; more rings means a smoother fade.
 local function glowBlob(parent, size, slot, strength, rings)
-	rings = math.max(4, rings or 10)
+	rings = math.max(4, rings or 8)
 	local total = math.clamp((strength or 0.035) * rings * 0.6, 0.01, 0.6)
 	local each = 1 - (1 - total) ^ (1 / rings)
 	local holder = create("Frame", {
@@ -1339,6 +1346,84 @@ local function glowBlob(parent, size, slot, strength, rings)
 	end
 	return holder, 1 - each
 end
+
+-- The Pepsi Hub logo, drawn with frames so it stays sharp at any size and needs no upload:
+-- gradient ring, white face, navy PEPSI, a gradient bar and red HUB.
+local LOGO_RING = {
+	{ 0, rgb(240, 122, 150) },
+	{ 0.28, rgb(214, 74, 124) },
+	{ 0.55, rgb(150, 42, 128) },
+	{ 0.8, rgb(104, 50, 168) },
+	{ 1, rgb(62, 62, 196) },
+}
+local function logoFont()
+	local family = FontFamilies["Arimo"] or "rbxasset://fonts/families/Arimo.json"
+	return Font.new(family, Enum.FontWeight.Bold)
+end
+local function pepsiLogo(parent, size)
+	size = size or 40
+	local root = create("Frame", { Name = "PepsiLogo", BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size), Parent = parent })
+	local function disc(name, scale, color)
+		local d = create("Frame", {
+			Name = name,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(scale, scale),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Parent = root,
+		})
+		corner(UDim.new(1, 0), d)
+		return d
+	end
+	disc("Edge", 1, rgb(12, 12, 18))
+	local ring = disc("Ring", 0.95, Color3.new(1, 1, 1))
+	local keys = {}
+	for _, k in ipairs(LOGO_RING) do
+		table.insert(keys, ColorSequenceKeypoint.new(k[1], k[2]))
+	end
+	local ringGradient = create("UIGradient", { Color = ColorSequence.new(keys), Rotation = 45, Parent = ring })
+	disc("Line", 0.77, rgb(12, 12, 18))
+	local face = disc("Face", 0.74, rgb(248, 248, 251))
+	local font = logoFont()
+	create("TextLabel", {
+		Name = "Pepsi",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.405),
+		Size = UDim2.fromScale(1, 0.3),
+		FontFace = font,
+		Text = "PEPSI",
+		TextColor3 = rgb(18, 30, 86),
+		TextSize = math.max(6, math.floor(size * 0.178 + 0.5)),
+		Parent = face,
+	})
+	local bar = create("Frame", {
+		Name = "Bar",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.57),
+		Size = UDim2.new(0.5, 0, 0, math.max(1, math.floor(size * 0.025 + 0.5))),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0,
+		Parent = face,
+	})
+	corner(UDim.new(1, 0), bar)
+	create("UIGradient", { Color = ColorSequence.new(rgb(214, 74, 124), rgb(62, 62, 196)), Parent = bar })
+	create("TextLabel", {
+		Name = "Hub",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.7),
+		Size = UDim2.fromScale(1, 0.26),
+		FontFace = font,
+		Text = "HUB",
+		TextColor3 = rgb(210, 31, 44),
+		TextSize = math.max(5, math.floor(size * 0.155 + 0.5)),
+		Parent = face,
+	})
+	return root, ringGradient
+end
+Library.PepsiLogo = pepsiLogo
 
 -- Shake something sideways (wrong input, locked element).
 local function shake(object)
@@ -1537,6 +1622,8 @@ local function executorName()
 	return "Unknown"
 end
 Library.Executor = executorName
+local queueSave, loadPreset, SoundPackNames, soundFolder, sfx, preloadSounds
+do
 
 -- ======================================================================
 -- Applying the theme
@@ -1629,7 +1716,7 @@ local SETTINGS_PATH = Library.Folder .. "/settings.json"
 Library.WindowState = {}
 
 function Library:SaveSettings()
-	local data = { Settings = {}, ThemeColors = {}, Window = Library.WindowState, Version = Library.Version }
+	local data = { Settings = {}, ThemeColors = {}, Window = Library.WindowState, Version = Library.Version, Schema = 2 }
 	for k, v in pairs(Settings) do
 		local t = type(v)
 		if t == "string" or t == "number" or t == "boolean" then
@@ -1643,7 +1730,7 @@ function Library:SaveSettings()
 end
 
 local saveQueued = false
-local function queueSave()
+function queueSave()
 	if saveQueued then
 		return
 	end
@@ -1657,7 +1744,7 @@ local function queueSave()
 end
 Library.QueueSave = queueSave
 
-local function loadPreset(name)
+function loadPreset(name)
 	local preset = Themes[name]
 	if not preset then
 		return false
@@ -1679,7 +1766,8 @@ function Library:LoadSettings()
 	end
 	self.SettingsLoaded = true
 	local data = readJSON(SETTINGS_PATH)
-	if not data then
+	-- Settings saved by older versions are skipped so everyone starts on the new look.
+	if not data or (tonumber(data.Schema) or 1) < 2 then
 		return
 	end
 	if type(data.Settings) == "table" then
@@ -1900,11 +1988,11 @@ local SoundPacks = {
 	},
 }
 Library.SoundPacks = SoundPacks
-local SoundPackNames = { "Pepsi", "Soft", "Bright" }
+SoundPackNames = { "Pepsi", "Soft", "Bright" }
 Library.SoundPackNames = SoundPackNames
 
 local SoundCache, SoundLast = {}, {}
-local soundFolder
+-- (declared above) local soundFolder
 local function soundParent()
 	if soundFolder and soundFolder.Parent then
 		return soundFolder
@@ -1970,7 +2058,7 @@ function Library:PlaySound(name, pitch, volume)
 	end
 end
 
-local function sfx(name, pitch, volume)
+function sfx(name, pitch, volume)
 	Library:PlaySound(name, pitch, volume)
 end
 
@@ -1979,7 +2067,7 @@ function Library:SetSound(name, id, volume, pitch)
 end
 
 local preloaded = false
-local function preloadSounds()
+function preloadSounds()
 	if preloaded then
 		return
 	end
@@ -1997,12 +2085,15 @@ local function preloadSounds()
 		end)
 	end)
 end
+end
+local snapshot, fadeItems, Overlay, Tooltip, attachTooltip, Context, attachContext, NotifyTypes, stackHolder
+do
 
 -- ======================================================================
 -- Fading whole groups of objects (Roblox has no opacity for frames, so we remember
 -- every transparency and tween them all).
 -- ======================================================================
-local function snapshot(root)
+function snapshot(root)
 	local items = {}
 	local function add(obj)
 		if obj:IsA("UIStroke") then
@@ -2028,7 +2119,7 @@ local function snapshot(root)
 	return items
 end
 
-local function fadeItems(items, out, time)
+function fadeItems(items, out, time)
 	for _, e in ipairs(items) do
 		if e.Obj.Parent or e.Obj == items[1].Obj then
 			local props = {}
@@ -2059,7 +2150,7 @@ end
 -- ======================================================================
 -- Overlay: one screen above everything for tooltips, menus, toasts and the loader.
 -- ======================================================================
-local Overlay = {}
+Overlay = {}
 local function overlay()
 	if Overlay.Gui and Overlay.Gui.Parent then
 		return Overlay
@@ -2086,7 +2177,7 @@ end
 -- ======================================================================
 -- Tooltips (hover on PC, long press on phones)
 -- ======================================================================
-local Tooltip = { Token = 0 }
+Tooltip = { Token = 0 }
 local function ensureTooltip()
 	if Tooltip.Frame and Tooltip.Frame.Parent then
 		return
@@ -2148,7 +2239,7 @@ local function placeTooltip()
 end
 
 function Library:ShowTooltip(content, anchor)
-	if not Settings.Tooltips or content == nil or content == "" then
+	if not Settings.Tooltips or type(content) ~= "string" or content == "" then
 		return
 	end
 	ensureTooltip()
@@ -2191,7 +2282,7 @@ function Library:HideTooltip()
 end
 
 -- Hover something for a moment to see its tooltip.
-local function attachTooltip(object, source)
+function attachTooltip(object, source)
 	local hovering, token = false, 0
 	object.MouseEnter:Connect(function()
 		if Library.Mobile then
@@ -2202,8 +2293,12 @@ local function attachTooltip(object, source)
 		local mine = token
 		task.delay(0.45, function()
 			if hovering and token == mine then
-				local value = type(source) == "function" and source() or source
-				if value and value ~= "" then
+				-- (not "and/or": a source that returns nothing must show nothing)
+				local value = source
+				if type(source) == "function" then
+					value = source()
+				end
+				if type(value) == "string" and value ~= "" then
 					Library:ShowTooltip(value)
 				end
 			end
@@ -2227,7 +2322,7 @@ end
 -- Context menu (right click on PC, long press on phones)
 -- items = { { Name, Icon, Callback, Danger, Hint }, { Divider = true }, { Header = "x", Text = "y" } }
 -- ======================================================================
-local Context = {}
+Context = {}
 function Library:CloseContextMenu()
 	local menu = Context.Menu
 	if not menu then
@@ -2377,7 +2472,7 @@ function Library:ContextMenu(items, at)
 end
 
 -- Right click or long press on an object opens a menu built by getItems().
-local function attachContext(object, getItems)
+function attachContext(object, getItems)
 	object.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton2 then
 			if os.clock() - (Context.LastOpen or 0) < 0.25 then
@@ -2419,7 +2514,7 @@ end
 -- ======================================================================
 -- Notifications
 -- ======================================================================
-local NotifyTypes = {
+NotifyTypes = {
 	Info = { Icon = "bell", Slot = nil, Sound = "Notify" },
 	Success = { Icon = "circle-check", Slot = "Success", Sound = "Success" },
 	Warning = { Icon = "triangle-alert", Slot = "Warning", Sound = "Warning" },
@@ -2429,7 +2524,7 @@ Library.NotifyAdded = Signal.new()
 local Toasts = { List = {}, Order = 0 }
 local Island = { Queue = {}, Busy = false }
 
-local function stackHolder()
+function stackHolder()
 	local o = overlay()
 	local position = Settings.NotifyPosition
 	if Toasts.Holder and Toasts.Holder.Parent and Toasts.Position == position then
@@ -2901,6 +2996,8 @@ function Library:Loader(opts)
 	local logoHolder = create("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(24, 24), Size = UDim2.fromOffset(46, 46), ZIndex = 83, Parent = card })
 	if type(opts.Logo) == "function" then
 		pcall(opts.Logo, logoHolder, 46)
+	elseif opts.Logo == nil or opts.Logo == "Pepsi" then
+		pepsiLogo(logoHolder, 46)
 	else
 		local tile = create("Frame", { BackgroundColor3 = "AccentA", Size = UDim2.fromScale(1, 1), ZIndex = 83, Parent = logoHolder })
 		corner(14, tile)
@@ -3010,15 +3107,18 @@ function Library:Loader(opts)
 	end
 	return loader
 end
+end
+local Window, Tab, Section, HEADER_H, makeLogo
+do
 
 -- ======================================================================
 -- Window
 -- ======================================================================
-local Window = {}
+Window = {}
 Window.__index = Window
-local Tab = {}
+Tab = {}
 Tab.__index = Tab
-local Section = {}
+Section = {}
 Section.__index = Section
 Library.Window, Library.TabClass, Library.SectionClass = Window, Tab, Section
 
@@ -3027,7 +3127,7 @@ local MOBILE_W, MOBILE_H = 680, 420
 local MIN_W, MIN_H = 560, 360
 local MAX_W, MAX_H = 1500, 960
 local SIDEBAR_W, SIDEBAR_MIN = 214, 64
-local HEADER_H = 58
+HEADER_H = 58
 
 local function defaultLogo(parent, size, letter)
 	local tile = create("Frame", { Name = "Logo", BackgroundColor3 = "AccentA", Size = UDim2.fromOffset(size, size), Parent = parent })
@@ -3045,7 +3145,10 @@ local function defaultLogo(parent, size, letter)
 	return tile
 end
 
-local function makeLogo(parent, size, logo, title)
+function makeLogo(parent, size, logo, title)
+	if logo == nil or logo == "Pepsi" then
+		return (pepsiLogo(parent, size))
+	end
 	if type(logo) == "function" then
 		local ok, made = pcall(logo, parent, size)
 		if ok and made then
@@ -3158,7 +3261,7 @@ function Library:CreateWindow(opts)
 		Mobile = mobile,
 		ToggleKey = toKey(state.ToggleKey) or opts.ToggleKey or Enum.KeyCode.RightControl,
 		ConfigFolder = opts.ConfigFolder or (Library.Folder .. "/configs/" .. tostring(game.PlaceId)),
-		RowHeight = mobile and 44 or 40,
+		RowHeight = mobile and 42 or 36,
 		BaseW = baseW,
 		BaseH = baseH,
 		W = math.clamp(tonumber(state.W) or baseW, MIN_W, MAX_W),
@@ -3243,6 +3346,14 @@ function Library:CreateWindow(opts)
 		self:BuildCursorGlow()
 	end
 
+	-- ---------------- navigation ----------------
+	-- "Top": a title row with the tabs across the top (default).
+	-- "Sidebar": the classic list of tabs on the left. Switch any time in Settings.
+	self.Nav = (opts.Navigation or Settings.Navigation) == "Sidebar" and "Sidebar" or "Top"
+	self.TitleH = mobile and 44 or 48
+	self.TabsH = mobile and 44 or 40
+	self.TopEntries = {}
+
 	-- ---------------- sidebar ----------------
 	local collapsed = Settings.Collapsed
 	if collapsed == nil then
@@ -3284,6 +3395,27 @@ function Library:CreateWindow(opts)
 	local brandTitle = text({ Parent = brand, Text = self.Title, Font = "Bold", Size = 17, Pos = UDim2.fromOffset(58, 14), Sz = UDim2.new(1, -66, 0, 19), Truncate = true, Z = 3 })
 	local brandSub = text({ Parent = brand, Text = self.Subtitle, Color = "SubText", Size = 12, Pos = UDim2.fromOffset(58, 34), Sz = UDim2.new(1, -66, 0, 15), Truncate = true, Z = 3 })
 	self.TitleLabel, self.SubtitleLabel = brandTitle, brandSub
+	-- Optional chip after the name ("Free", "Premium", "v2"...).
+	if opts.Badge then
+		local chip = create("TextLabel", {
+			Name = "Chip",
+			BackgroundColor3 = "Element",
+			BackgroundTransparency = 0.35,
+			FontFace = "SemiBold",
+			Text = tostring(opts.Badge),
+			TextColor3 = "Text",
+			TextSize = 10,
+			Size = UDim2.fromOffset(0, 17),
+			AutomaticSize = Enum.AutomaticSize.X,
+			ZIndex = 4,
+			Parent = brand,
+		})
+		corner(UDim.new(1, 0), chip)
+		stroke(chip, 0.82)
+		padding(chip, 0, 7, 0, 7)
+		self.BrandChip = chip
+		self:_placeBrandChip()
+	end
 
 	-- Search (opens the command palette).
 	local search = create("TextButton", {
@@ -3407,10 +3539,114 @@ function Library:CreateWindow(opts)
 		return self.SettingsTab and "Open settings" or nil
 	end)
 	self.Footer, self.Avatar = footer, avatar
-	self.CollapseLabels = { brandTitle, brandSub, searchLabel, footerName, footerSub }
+	self.CollapseLabels = { brandTitle, brandSub, searchLabel, footerName, footerSub, self.BrandChip }
 	if hint then
 		table.insert(self.CollapseLabels, hint)
 	end
+
+	-- ---------------- top navigation ----------------
+	-- One slim row (logo, name, game, window buttons) with the tabs under it.
+	local topNav = create("Frame", {
+		Name = "TopNav",
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, self.TitleH + self.TabsH),
+		ZIndex = 2,
+		Parent = main,
+	})
+	self.TopNav = topNav
+
+	-- Title row: name, game and an optional chip, with the window buttons on the right.
+	local titleRow = create("Frame", {
+		Name = "TitleRow",
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, self.TitleH),
+		ZIndex = 3,
+		Parent = topNav,
+	})
+	self.TitleRow = titleRow
+	local miniSize = mobile and 26 or 28
+	local miniLogo = create("Frame", { Name = "MiniLogo", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 0.5, 0), Size = UDim2.fromOffset(miniSize, miniSize), ZIndex = 3, Parent = titleRow })
+	makeLogo(miniLogo, miniSize, opts.Logo, self.Title)
+	local titleX = 16 + miniSize + 10
+	local titleGroup = create("Frame", {
+		Name = "Title",
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, titleX, 0.5, 0),
+		Size = UDim2.new(1, -titleX - (mobile and 176 or 236), 0, 24),
+		ZIndex = 3,
+		Parent = titleRow,
+	})
+	list(titleGroup, 8, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
+	local topTitle = text({ Parent = titleGroup, Text = self.Title, Font = "Bold", Size = 15, Auto = Enum.AutomaticSize.X, Sz = UDim2.fromOffset(0, 20), Order = 1, Z = 3 })
+	local topSub = text({ Parent = titleGroup, Text = self.Subtitle, Color = "SubText", Size = 14, Auto = Enum.AutomaticSize.X, Sz = UDim2.fromOffset(0, 20), Order = 2, Z = 3 })
+	if opts.Badge then
+		local chip = create("TextLabel", {
+			Name = "Chip",
+			BackgroundColor3 = "Element",
+			BackgroundTransparency = 0.35,
+			FontFace = "SemiBold",
+			Text = tostring(opts.Badge),
+			TextColor3 = "Text",
+			TextSize = 11,
+			Size = UDim2.fromOffset(0, 20),
+			AutomaticSize = Enum.AutomaticSize.X,
+			LayoutOrder = 3,
+			ZIndex = 3,
+			Parent = titleGroup,
+		})
+		corner(UDim.new(1, 0), chip)
+		stroke(chip, 0.82)
+		padding(chip, 0, 9, 0, 9)
+	end
+	self.TitleGroup, self.TopTitle, self.TopSubtitle = titleGroup, topTitle, topSub
+
+	-- Tabs across the top, with a highlight that slides to the picked one.
+	local tabRow = create("ScrollingFrame", {
+		Name = "TopTabs",
+		Position = UDim2.fromOffset(0, self.TitleH),
+		Size = UDim2.new(1, 0, 0, self.TabsH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 0,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		ZIndex = 3,
+		Parent = topNav,
+	})
+	local topHighlight = create("Frame", {
+		Name = "Highlight",
+		BackgroundColor3 = "Element",
+		BackgroundTransparency = 0.3,
+		Position = UDim2.fromOffset(14, (self.TabsH - 30) / 2),
+		Size = UDim2.fromOffset(80, 30),
+		Visible = false,
+		ZIndex = 3,
+		Parent = tabRow,
+	})
+	corner(10, topHighlight)
+	stroke(topHighlight, 0.82)
+	local topLine = create("Frame", { Name = "Line", BackgroundColor3 = "AccentA", BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.new(0.42, 0, 0, 2), ZIndex = 4, Parent = topHighlight })
+	corner(UDim.new(1, 0), topLine)
+	gradient(topLine)
+	local topItems = create("Frame", { Name = "Items", BackgroundTransparency = 1, Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 4, Parent = tabRow })
+	padding(topItems, 0, 14, 0, 14)
+	list(topItems, 4, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
+	self.TopTabs, self.TopItems, self.TopHighlight = tabRow, topItems, topHighlight
+	local navLine = create("Frame", {
+		Name = "NavLine",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 16, 1, 0),
+		Size = UDim2.new(1, -32, 0, 1),
+		BackgroundColor3 = "Stroke",
+		BackgroundTransparency = 0.92,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+		Parent = topNav,
+	})
+	self.NavLine = navLine
 
 	-- ---------------- content ----------------
 	local content = create("Frame", {
@@ -3462,7 +3698,12 @@ function Library:CreateWindow(opts)
 		Parent = header,
 	})
 	list(buttons, 6, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center)
-	local bell = iconButton(buttons, "Bell", "bell", 32, function()
+	self.HeaderButtons = buttons
+	local bsize = mobile and 32 or 30
+	self.TopSearch = iconButton(buttons, "Search", "search", bsize, function()
+		self:OpenSearch()
+	end, { Order = 0, Tooltip = mobile and "Search" or "Search (Ctrl+K)" })
+	local bell = iconButton(buttons, "Bell", "bell", bsize, function()
 		self:ToggleHistory()
 	end, { Order = 1, Tooltip = "Notifications" })
 	local badge = create("TextLabel", {
@@ -3481,18 +3722,18 @@ function Library:CreateWindow(opts)
 	})
 	corner(UDim.new(1, 0), badge)
 	self.Bell, self.BellBadge = bell, badge
-	self.CollapseButton, self.CollapseIcon = iconButton(buttons, "Collapse", collapsed and "panel-left-open" or "panel-left-close", 32, function()
+	self.CollapseButton, self.CollapseIcon = iconButton(buttons, "Collapse", collapsed and "panel-left-open" or "panel-left-close", bsize, function()
 		Library:SetSetting("Collapsed", not self.Collapsed)
 	end, { Order = 2, Tooltip = "Collapse sidebar" })
-	iconButton(buttons, "Minimize", "minus", 32, function()
+	iconButton(buttons, "Minimize", "minus", bsize, function()
 		self:SetOpen(false)
 	end, { Order = 3, Tooltip = mobile and "Hide (tap the floating button to open)" or ("Hide (" .. keyName(self.ToggleKey) .. ")") })
 	if not mobile then
-		self.MaxButton, self.MaxIcon = iconButton(buttons, "Maximize", "maximize-2", 32, function()
+		self.MaxButton, self.MaxIcon = iconButton(buttons, "Maximize", "maximize-2", bsize, function()
 			self:SetMaximized(not self.Maximized)
 		end, { Order = 4, Tooltip = "Maximize" })
 	end
-	iconButton(buttons, "Close", "x", 32, function()
+	iconButton(buttons, "Close", "x", bsize, function()
 		self:Confirm("Close " .. self.Title .. "?", "This unloads the script and turns every feature off.", function()
 			Library:Unload()
 		end, { Icon = "power", Yes = "Close" })
@@ -3601,6 +3842,7 @@ function Library:CreateWindow(opts)
 	self:_bindResize(grip)
 	self:_bindDrag(header)
 	self:_bindDrag(brand)
+	self:_bindDrag(titleRow)
 
 	-- Keyboard: menu key, Ctrl+K search, Escape closes popups.
 	connect(UserInputService.InputBegan, function(input, processed)
@@ -3650,15 +3892,19 @@ function Library:CreateWindow(opts)
 		self:FitToScreen()
 	end)
 	self:SetSidebar(collapsed, true)
+	self:SetNavigation(self.Nav, true)
 
 	-- Open animation.
 	self.Open = false
 	self.Holder.Visible = false
-	if opts.StartHidden then
-		return self
+	if not opts.StartHidden then
+		task.defer(function()
+			self:SetOpen(true)
+		end)
 	end
-	task.defer(function()
-		self:SetOpen(true)
+	-- First time only: show where the open button is and how to use it.
+	task.delay(opts.StartHidden and 4 or 1.6, function()
+		self:_firstRunHint()
 	end)
 	return self
 end
@@ -3864,7 +4110,7 @@ end
 
 -- Two columns when there's room, one on narrow windows.
 function Window:RelayoutColumns()
-	local width = self.W - (self.Collapsed and SIDEBAR_MIN or SIDEBAR_W)
+	local width = self.W - (self.Nav == "Sidebar" and (self.Collapsed and SIDEBAR_MIN or SIDEBAR_W) or 0)
 	local two = width >= 540
 	if two == self.TwoColumns then
 		return
@@ -3888,7 +4134,7 @@ function Window:SetSidebar(collapsed, instant)
 	local width = collapsed and SIDEBAR_MIN or SIDEBAR_W
 	local t = instant and 0 or 0.4
 	tween(self.Sidebar, { Size = UDim2.new(0, width, 1, 0) }, t)
-	tween(self.Content, { Position = UDim2.fromOffset(width, 0), Size = UDim2.new(1, -width, 1, 0) }, t)
+	self:_layoutContent(instant)
 	for _, label in ipairs(self.CollapseLabels) do
 		if collapsed then
 			label.Visible = false
@@ -3915,6 +4161,68 @@ function Window:SetSidebar(collapsed, instant)
 	task.delay(instant and 0 or 0.05, function()
 		self:_moveTabHighlight(true)
 	end)
+end
+
+-- Where the pages sit depends on the navigation style.
+function Window:_layoutContent(instant)
+	local t = instant and 0 or 0.38
+	if self.Nav == "Top" then
+		local h = self.TitleH + self.TabsH
+		tween(self.Content, { Position = UDim2.fromOffset(0, h), Size = UDim2.new(1, 0, 1, -h) }, t)
+	else
+		local w = self.Collapsed and SIDEBAR_MIN or SIDEBAR_W
+		tween(self.Content, { Position = UDim2.fromOffset(w, 0), Size = UDim2.new(1, -w, 1, 0) }, t)
+	end
+end
+
+-- "Top" or "Sidebar". Switches live.
+function Window:SetNavigation(mode, instant)
+	self.Nav = mode == "Sidebar" and "Sidebar" or "Top"
+	local top = self.Nav == "Top"
+	self.TopNav.Visible = top
+	self.Sidebar.Visible = not top
+	self.Header.Visible = not top
+	local buttons = self.HeaderButtons
+	if top then
+		buttons.Parent = self.TitleRow
+		buttons.AnchorPoint = Vector2.new(1, 0.5)
+		buttons.Position = UDim2.new(1, -14, 0.5, 0)
+	else
+		buttons.Parent = self.Header
+		buttons.AnchorPoint = Vector2.new(1, 0)
+		buttons.Position = UDim2.new(1, -14, 0, 13)
+	end
+	self.TopSearch.Visible = top
+	self.CollapseButton.Visible = not top
+	self:_layoutContent(true)
+	self.TwoColumns = nil
+	self:RelayoutColumns()
+	if self.CurrentTab then
+		self:SelectTab(self.CurrentTab, self.CurrentTab.LastPage, true)
+	end
+	task.defer(function()
+		self:_moveTabHighlight(true)
+		self:_moveTopHighlight(true)
+	end)
+end
+
+-- A one time hint so new users know how to open and close the menu.
+function Window:_firstRunHint()
+	if Settings.Onboarded or Library.Unloaded then
+		return
+	end
+	local button = self.ToggleButton and self.ToggleButton.Button
+	local message = self.Mobile and "This is your Pepsi Hub button. Tap it to hide or show the menu, drag it to move it."
+		or ("Press " .. keyName(self.ToggleKey) .. " or click this button to hide and show the menu. Ctrl+K searches everything.")
+	if button and button.Visible then
+		Library:ShowTooltip(message, button)
+	else
+		Library:Notify({ Title = "Tip", Content = message, Duration = 7 })
+	end
+	task.delay(7, function()
+		Library:HideTooltip()
+	end)
+	Library:SetSetting("Onboarded", true)
 end
 
 -- ======================================================================
@@ -4063,11 +4371,32 @@ end
 function Window:SetTitle(t)
 	self.Title = tostring(t)
 	self.TitleLabel.Text = self.Title
+	self.TopTitle.Text = self.Title
+	self:_placeBrandChip()
+end
+
+-- The sidebar chip sits right after the name, or under it when the name is long.
+function Window:_placeBrandChip()
+	local chip = self.BrandChip
+	if not chip then
+		return
+	end
+	local nameW = math.ceil(measure(self.Title, 17).X)
+	local chipW = math.ceil(measure(chip.Text, 10).X) + 14
+	local room = SIDEBAR_W - 58 - 10
+	if nameW + 6 + chipW <= room then
+		chip.Position = UDim2.fromOffset(58 + nameW + 6, 15)
+		self.TitleLabel.Size = UDim2.new(1, -66, 0, 19)
+	else
+		chip.Position = UDim2.fromOffset(SIDEBAR_W - 10 - chipW, 15)
+		self.TitleLabel.Size = UDim2.new(1, -66 - chipW - 6, 0, 19)
+	end
 end
 
 function Window:SetSubtitle(t)
 	self.Subtitle = tostring(t)
 	self.SubtitleLabel.Text = self.Subtitle
+	self.TopSubtitle.Text = self.Subtitle
 	if self.WatermarkGame then
 		self.WatermarkGame.Text = self.Subtitle
 	end
@@ -4080,19 +4409,19 @@ function Window:BuildFizz()
 	local layer = create("Frame", { Name = "Fizz", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = self.Decor })
 	self.FizzLayer = layer
 	local bubbles = {}
-	for i = 1, (self.Mobile and 10 or 16) do
-		local size = math.random(3, 9)
+	for i = 1, (self.Mobile and 7 or 11) do
+		local size = math.random(2, 7)
 		local b = create("Frame", {
 			Name = "Bubble",
 			BackgroundColor3 = i % 3 == 0 and "AccentB" or "AccentA",
-			BackgroundTransparency = 0.82,
+			BackgroundTransparency = 0.87,
 			Size = UDim2.fromOffset(size, size),
 			Position = UDim2.new(math.random(), 0, math.random(), 0),
 			BorderSizePixel = 0,
 			Parent = layer,
 		})
 		corner(UDim.new(1, 0), b)
-		local ring = create("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.86, Thickness = 1, Parent = b })
+		local ring = create("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.92, Thickness = 1, Parent = b })
 		table.insert(bubbles, { Frame = b, Ring = ring, X = b.Position.X.Scale, Y = b.Position.Y.Scale, Speed = 0.012 + math.random() * 0.03, Phase = math.random() * 6, Sway = 0.004 + math.random() * 0.01 })
 	end
 	self.Bubbles = bubbles
@@ -4137,7 +4466,7 @@ function Window:BuildCursorGlow()
 		if input.UserInputType ~= Enum.UserInputType.MouseMovement or not self.Open or not Settings.CursorGlow then
 			return
 		end
-		local rel = input.Position - self.Main.AbsolutePosition
+		local rel = Vector2.new(input.Position.X, input.Position.Y) - self.Main.AbsolutePosition
 		local size = self.Main.AbsoluteSize
 		local inside = rel.X >= 0 and rel.Y >= 0 and rel.X <= size.X and rel.Y <= size.Y
 		local ratio = self:Ratio()
@@ -4204,13 +4533,18 @@ function Window:_onSetting(key, value)
 		end
 	elseif key == "NotifyPosition" or key == "NotifyStyle" then
 		stackHolder()
+	elseif key == "Navigation" then
+		self:SetNavigation(value)
 	end
 end
+end
+local LiveStats
+do
 
 -- ======================================================================
 -- Live stats shared by the top bar and the home tab
 -- ======================================================================
-local LiveStats = { FPS = 60, Ping = 0, Started = os.clock() }
+LiveStats = { FPS = 60, Ping = 0, Started = os.clock() }
 Library.LiveStats = LiveStats
 do
 	local frames, elapsed = 0, 0
@@ -4294,37 +4628,58 @@ function Window:BuildToggleButton(opts)
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
-	local glow = glowBlob(button, size * 2.2, "AccentA", 0.04, 5)
-	glow.Position = UDim2.fromScale(0.5, 0.5)
-	local ring = create("Frame", {
-		Name = "Ring",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.new(1, 6, 1, 6),
-		BackgroundColor3 = "AccentA",
-		Parent = button,
-	})
-	corner(UDim.new(1, 0), ring)
-	local ringGradient = gradient(ring, 45)
-	local face = create("Frame", {
-		Name = "Face",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = "Background",
-		ClipsDescendants = true,
-		Parent = button,
-	})
-	corner(UDim.new(1, 0), face)
-	local logo = makeLogo(face, size - 12, opts.ButtonLogo or opts.Logo, self.Title)
-	if logo then
+	-- Soft shadow so it reads on bright and dark games.
+	for _, layer in ipairs({ { 16, 0.95 }, { 9, 0.9 }, { 4, 0.82 } }) do
+		local shadow = create("Frame", {
+			Name = "Shadow",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0.5, 3),
+			Size = UDim2.new(1, layer[1], 1, layer[1]),
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			BackgroundTransparency = layer[2],
+			Parent = button,
+		})
+		corner(UDim.new(1, 0), shadow)
+	end
+	local custom = opts.ButtonLogo or opts.Logo
+	local ring, ringGradient
+	if custom == nil or custom == "Pepsi" then
+		-- The Pepsi Hub logo is the button.
+		local logo = pepsiLogo(button, size)
 		logo.AnchorPoint = Vector2.new(0.5, 0.5)
 		logo.Position = UDim2.fromScale(0.5, 0.5)
+	else
+		-- Someone else's logo sits on a round face with an accent ring.
+		ring = create("Frame", {
+			Name = "Ring",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(1, 4, 1, 4),
+			BackgroundColor3 = "AccentA",
+			Parent = button,
+		})
+		corner(UDim.new(1, 0), ring)
+		ringGradient = gradient(ring, 45)
+		local face = create("Frame", {
+			Name = "Face",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = "Background",
+			ClipsDescendants = true,
+			Parent = button,
+		})
+		corner(UDim.new(1, 0), face)
+		local logo = makeLogo(face, size - 12, custom, self.Title)
+		if logo then
+			logo.AnchorPoint = Vector2.new(0.5, 0.5)
+			logo.Position = UDim2.fromScale(0.5, 0.5)
+		end
 	end
 	local badge = create("TextLabel", {
 		Name = "Badge",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(1, -6, 0, 6),
+		Position = UDim2.new(1, -4, 0, 4),
 		Size = UDim2.fromOffset(18, 18),
 		BackgroundColor3 = "Error",
 		Text = "",
@@ -4380,17 +4735,20 @@ function Window:BuildToggleButton(opts)
 			return (self.Open and "Hide " or "Open ") .. self.Title .. " (" .. keyName(self.ToggleKey) .. ")"
 		end)
 	end
-	-- The ring turns slowly so it reads as alive.
-	Ticker.Add(function(dt)
-		if not ring.Parent then
-			return true
-		end
-		ringGradient.Rotation = (ringGradient.Rotation + dt * (self.Open and 90 or 40)) % 360
-	end)
+	if ring then
+		-- The accent ring turns slowly so it reads as alive.
+		Ticker.Add(function(dt)
+			if not ring.Parent then
+				return true
+			end
+			ringGradient.Rotation = (ringGradient.Rotation + dt * (self.Open and 90 or 40)) % 360
+		end)
+	end
 	local handle = { Button = button, Ring = ring, Badge = badge }
 	function handle.SetState(open)
-		tween(ring, { BackgroundTransparency = open and 0 or 0.35 }, 0.25)
-		tween(glow, { Size = UDim2.fromOffset(size * (open and 2.4 or 1.8), size * (open and 2.4 or 1.8)) }, 0.4)
+		if ring then
+			tween(ring, { BackgroundTransparency = open and 0 or 0.35 }, 0.25)
+		end
 	end
 	self.ToggleButton = handle
 	if opts.ShowButton == false or not Settings.ShowButton then
@@ -5448,6 +5806,8 @@ function Window:ScrollTo(frame, scroll, margin)
 		end
 	end)
 end
+end
+do
 
 -- ======================================================================
 -- Sidebar entries: categories and tabs
@@ -5498,6 +5858,70 @@ function Window:_moveTabHighlight(instant)
 	end)
 end
 
+-- Top bar: where a tab's pill starts and how wide it is.
+function Window:_topX(target)
+	local x = 14
+	for _, entry in ipairs(self.TopEntries) do
+		if entry.Tab == target then
+			return x, entry.Width
+		end
+		if entry.Frame.Visible then
+			x += entry.Width + 4
+		end
+	end
+	return x, 80
+end
+
+function Window:_moveTopHighlight(instant)
+	local tab = self.CurrentTab
+	local hl = self.TopHighlight
+	if not tab or tab.Hidden or not tab.TopPill then
+		hl.Visible = false
+		return
+	end
+	local x, w = self:_topX(tab)
+	local y = (self.TabsH - 30) / 2
+	local was = hl.Visible
+	hl.Visible = true
+	if instant or not was then
+		hl.Position = UDim2.fromOffset(x, y)
+		hl.Size = UDim2.fromOffset(w, 30)
+	else
+		-- Stretch over to the new pill, then settle.
+		local fromX, fromW = hl.Position.X.Offset, hl.Size.X.Offset
+		local left, right = math.min(fromX, x), math.max(fromX + fromW, x + w)
+		tween(hl, { Position = UDim2.fromOffset(left, y), Size = UDim2.fromOffset(right - left, 30) }, 0.14, Enum.EasingStyle.Quad)
+		task.delay(0.14, function()
+			if self.CurrentTab == tab then
+				tween(hl, { Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, 30) }, 0.32, Enum.EasingStyle.Back)
+			end
+		end)
+	end
+	task.defer(function()
+		if self.Nav == "Top" and tab.TopPill.Parent then
+			self:_scrollTopInto(tab)
+		end
+	end)
+end
+
+-- Slide the top bar so the picked tab is fully on screen (phones, many tabs).
+function Window:_scrollTopInto(tab)
+	local scroll = self.TopTabs
+	local x, w = self:_topX(tab)
+	local view = scroll.AbsoluteSize.X / math.max(0.05, self:Ratio())
+	local cx = scroll.CanvasPosition.X
+	local target = cx
+	if x - 28 < cx then
+		target = x - 28
+	elseif x + w + 28 > cx + view then
+		target = x + w + 28 - view
+	end
+	target = math.max(0, target)
+	if math.abs(target - cx) > 1 then
+		tween(scroll, { CanvasPosition = Vector2.new(target, 0) }, 0.3)
+	end
+end
+
 function Window:Category(name)
 	local window = self
 	local frame = create("Frame", {
@@ -5510,6 +5934,11 @@ function Window:Category(name)
 	})
 	local label = text({ Parent = frame, Text = tostring(name):upper(), Font = "Bold", Size = 11, Color = "Dim", Pos = UDim2.fromOffset(6, 8), Sz = UDim2.new(1, -12, 0, 14), Truncate = true, Z = 4 })
 	local line = create("Frame", { BackgroundColor3 = "Stroke", BackgroundTransparency = 0.9, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(0, 22, 0, 1), Visible = self.Collapsed, ZIndex = 4, Parent = frame })
+	if #self.TopEntries > 0 then
+		local holder = create("Frame", { Name = "Divider", BackgroundTransparency = 1, Size = UDim2.fromOffset(9, 30), LayoutOrder = #self.TopEntries + 1, ZIndex = 4, Parent = self.TopItems })
+		create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1, 16), BackgroundColor3 = "Stroke", BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 4, Parent = holder })
+		table.insert(self.TopEntries, { Kind = "Divider", Frame = holder, Width = 9 })
+	end
 	local entry = { Kind = "Category", Frame = frame, Name = name }
 	function entry:Height()
 		return window.Collapsed and CATEGORY_MIN or CATEGORY_H
@@ -5624,6 +6053,35 @@ function Window:Tab(opts)
 	local scale = create("UIScale", { Parent = img })
 	tab.Button, tab.Label, tab.Icon, tab.IconGradient, tab.Letter, tab.BadgeLabel, tab.LockIcon, tab.Frame = button, label, img, iconGradient, letter, badge, lock, button
 
+	-- The same tab as a pill in the top bar.
+	local pillIconX = 12
+	local pillW = math.floor(measure(tab.Name, 13).X + (hasIcon and 44 or 26))
+	local pill = create("TextButton", {
+		Name = "TopTab_" .. tab.Name,
+		AutoButtonColor = false,
+		Text = "",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(pillW, 30),
+		LayoutOrder = #self.TopEntries + 1,
+		ZIndex = 5,
+		Parent = self.TopItems,
+	})
+	local pillIcon = icon(pill, opts.Icon or "layout-grid", 15, "SubText", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, pillIconX, 0.5, 0), Visible = hasIcon, ZIndex = 6 })
+	local pillGradient = Instance.new("UIGradient")
+	pillGradient.Rotation = 45
+	Gradients[pillGradient] = { "AccentA", "AccentB" }
+	pillGradient.Color = accentSequence()
+	pillGradient.Enabled = false
+	pillGradient.Parent = pillIcon
+	local pillLabel = text({ Parent = pill, Text = tab.Name, Font = "SemiBold", Size = 13, Color = "SubText", Pos = UDim2.fromOffset(hasIcon and 33 or 13, 0), Sz = UDim2.new(1, -(hasIcon and 33 or 13), 1, 0), Z = 6 })
+	local pillDot = create("Frame", { Name = "Dot", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(hasIcon and 25 or 8, 8), Size = UDim2.fromOffset(7, 7), BackgroundColor3 = "AccentA", Visible = false, ZIndex = 7, Parent = pill })
+	corner(UDim.new(1, 0), pillDot)
+	stroke(pillDot, 0, 1.5, "Background")
+	local pillScale = create("UIScale", { Parent = pillIcon })
+	local topEntry = { Kind = "Tab", Tab = tab, Frame = pill, Width = pillW }
+	table.insert(self.TopEntries, topEntry)
+	tab.TopPill, tab.TopIcon, tab.TopLabel, tab.TopGradient, tab.TopDot, tab.TopEntry, tab.HasIcon = pill, pillIcon, pillLabel, pillGradient, pillDot, topEntry, hasIcon
+
 	function tab:Height()
 		return TAB_H
 	end
@@ -5649,8 +6107,11 @@ function Window:Tab(opts)
 	local function paintTab(smooth)
 		local selected = window.CurrentTab == tab
 		paint(label, { TextColor3 = selected and Theme.Text or Theme.SubText }, smooth, 0.2)
+		paint(pillLabel, { TextColor3 = selected and Theme.Text or Theme.SubText }, smooth, 0.2)
 		iconGradient.Enabled = selected
+		pillGradient.Enabled = selected
 		paint(img, { ImageColor3 = selected and Color3.new(1, 1, 1) or Theme.SubText }, smooth, 0.2)
+		paint(pillIcon, { ImageColor3 = selected and Color3.new(1, 1, 1) or Theme.SubText }, smooth, 0.2)
 		if letter then
 			paint(letter, { TextColor3 = selected and Theme.AccentA or Theme.SubText }, smooth, 0.2)
 		end
@@ -5676,14 +6137,37 @@ function Window:Tab(opts)
 		end
 		tween(scale, { Scale = 1 }, 0.2)
 	end)
-	button.Activated:Connect(function()
+	local function activate(source)
 		if tab.Locked then
-			shake(button)
+			shake(source)
 			sfx("Error")
 			Library:Notify({ Title = tab.Name .. " is locked", Content = tab.LockReason or "This tab isn't available right now.", Type = "Warning", Duration = 3 })
 			return
 		end
 		window:SelectTab(tab)
+	end
+	button.Activated:Connect(function()
+		activate(button)
+	end)
+	pill.Activated:Connect(function()
+		activate(pillIcon)
+	end)
+	pill.MouseEnter:Connect(function()
+		sfx("Hover")
+		if window.CurrentTab ~= tab then
+			tween(pillLabel, { TextColor3 = Theme.Text }, 0.15)
+			tween(pillIcon, { ImageColor3 = Theme.Text }, 0.15)
+		end
+		tween(pillScale, { Scale = 1.14 }, 0.2, Enum.EasingStyle.Back)
+	end)
+	pill.MouseLeave:Connect(function()
+		if window.CurrentTab ~= tab then
+			paintTab(true)
+		end
+		tween(pillScale, { Scale = 1 }, 0.2)
+	end)
+	attachTooltip(pill, function()
+		return tab.Description ~= "" and tab.Description or nil
 	end)
 	attachTooltip(button, function()
 		if window.Collapsed then
@@ -5705,16 +6189,14 @@ function Window:Tab(opts)
 		if window.CurrentTab then
 			return
 		end
-		local last = window.State.Tab
-		if last and last ~= tab.Name then
-			for _, t in ipairs(window.Tabs) do
-				if t.Name == last then
-					return
-				end
+		local pick = window.Tabs[1]
+		for _, t in ipairs(window.Tabs) do
+			if t.Name == window.State.Tab and not t.Locked then
+				pick = t
 			end
 		end
-		if last == tab.Name or #window.Tabs >= 1 then
-			window:SelectTab(last == tab.Name and tab or window.Tabs[1])
+		if pick then
+			window:SelectTab(pick)
 		end
 	end)
 	return tab
@@ -5727,10 +6209,12 @@ function Tab:SetBadge(value)
 	if value == nil or value == false or value == 0 or value == "" then
 		tab.BadgeText = nil
 		tab.BadgeLabel.Visible = false
+		tab.TopDot.Visible = false
 		return
 	end
 	tab.BadgeText = tostring(value)
 	tab.BadgeLabel.Visible = true
+	tab.TopDot.Visible = true
 	tab:SetCollapsed(tab.Window.Collapsed)
 	tab.BadgeLabel.Size = tab.Window.Collapsed and UDim2.fromOffset(0, 0) or UDim2.fromOffset(0, 0)
 	tween(tab.BadgeLabel, { Size = tab.Window.Collapsed and UDim2.fromOffset(8, 8) or UDim2.fromOffset(0, 18) }, 0.35, Enum.EasingStyle.Back)
@@ -5743,12 +6227,18 @@ function Tab:SetLocked(locked, reason)
 	tab.LockIcon.Visible = tab.Locked and not tab.BadgeText
 	tab.Label.TextTransparency = tab.Locked and 0.45 or 0
 	tab.Icon.ImageTransparency = tab.Locked and 0.45 or 0
+	tab.TopLabel.TextTransparency = tab.Locked and 0.45 or 0
+	setIcon(tab.TopIcon, tab.Locked and "lock" or (tab.IconName or "layout-grid"))
 end
 
 function Tab:SetName(name)
 	local tab = rawget(self, "Tab") or self
 	tab.Name = tostring(name)
 	tab.Label.Text = tab.Name
+	tab.TopLabel.Text = tab.Name
+	tab.TopEntry.Width = math.floor(measure(tab.Name, 13).X + (tab.HasIcon and 44 or 26))
+	tab.TopPill.Size = UDim2.fromOffset(tab.TopEntry.Width, 30)
+	tab.Window:_moveTopHighlight(true)
 	if tab.Window.CurrentTab == tab then
 		tab.Window.CrumbTitle.Text = tab.Name
 	end
@@ -5758,6 +6248,7 @@ function Tab:SetIcon(name)
 	local tab = rawget(self, "Tab") or self
 	tab.IconName = name
 	setIcon(tab.Icon, name)
+	setIcon(tab.TopIcon, name)
 end
 
 function Tab:SetDescription(value)
@@ -5772,7 +6263,9 @@ function Tab:SetVisible(visible)
 	local tab = rawget(self, "Tab") or self
 	tab.Hidden = not visible
 	tab.Button.Visible = visible
+	tab.TopPill.Visible = visible
 	tab.Window:_moveTabHighlight(true)
+	tab.Window:_moveTopHighlight(true)
 end
 
 function Tab:Select()
@@ -5796,6 +6289,7 @@ function Window:SelectTab(tab, pageIndex)
 	end
 	tab.Paint(true)
 	self:_moveTabHighlight(previous == nil)
+	self:_moveTopHighlight(previous == nil)
 	-- Keep the picked tab in view when the list scrolls.
 	task.defer(function()
 		local scroll = self.TabScroll
@@ -5831,7 +6325,10 @@ function Window:SelectTab(tab, pageIndex)
 	end
 	local showBar = #tab.Pages > 1
 	self.SubBar.Visible = showBar
-	local top = showBar and HEADER_H + 42 or HEADER_H
+	local headerH = self.Nav == "Top" and 0 or HEADER_H
+	local barY = headerH + (self.Nav == "Top" and 10 or 0)
+	self.SubBar.Position = UDim2.fromOffset(16, barY)
+	local top = showBar and (barY + 42) or (headerH + (self.Nav == "Top" and 4 or 0))
 	self.Pages.Position = UDim2.fromOffset(0, top)
 	self.Pages.Size = UDim2.new(1, 0, 1, -top)
 	if showBar then
@@ -5955,39 +6452,53 @@ end
 -- ======================================================================
 -- Sections
 -- ======================================================================
+-- Header: icon, name, an optional line of text, and a divider across the whole card.
 local function sectionHeader(section, opts, parent)
 	local hasDesc = opts.Description ~= nil
+	local headH = hasDesc and 36 or 20
+	section.HeadH = headH
 	local head = create("TextButton", {
 		Name = "Header",
 		AutoButtonColor = false,
 		Text = "",
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, hasDesc and 38 or 24),
+		Size = UDim2.new(1, 0, 0, headH + 11),
 		LayoutOrder = 0,
 		ZIndex = 3,
 		Parent = parent,
 	})
 	local x = 2
 	if opts.Icon then
-		local img, ok = icon(head, opts.Icon, 16, Color3.new(1, 1, 1), { Position = UDim2.fromOffset(2, 3), ZIndex = 3 })
+		local img, ok = icon(head, opts.Icon, 15, Color3.new(1, 1, 1), { Position = UDim2.fromOffset(2, 2), ZIndex = 3 })
 		if ok then
 			gradient(img, 45)
-			x = 25
+			x = 24
 		else
 			img:Destroy()
 		end
 	end
 	local rightPad = opts.Collapsible and 30 or 4
-	local title = text({ Parent = head, Text = section.Name, Font = "Bold", Size = 15, Pos = UDim2.fromOffset(x, 2), Sz = UDim2.new(1, -x - rightPad - 70, 0, 19), Truncate = true, Z = 3 })
+	local title = text({ Parent = head, Text = section.Name, Font = "SemiBold", Size = 14, Pos = UDim2.fromOffset(x, 1), Sz = UDim2.new(1, -x - rightPad - 70, 0, 18), Truncate = true, Z = 3 })
 	local desc
 	if hasDesc then
-		desc = text({ Parent = head, Text = tostring(opts.Description), Color = "SubText", Size = 12, Pos = UDim2.fromOffset(2, 21), Sz = UDim2.new(1, -rightPad - 4, 0, 15), Truncate = true, Z = 3 })
+		desc = text({ Parent = head, Text = tostring(opts.Description), Color = "SubText", Size = 12, Pos = UDim2.fromOffset(2, 19), Sz = UDim2.new(1, -rightPad - 4, 0, 15), Truncate = true, Z = 3 })
 	end
+	section.HeadDivider = create("Frame", {
+		Name = "Divider",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, -12, 1, 0),
+		Size = UDim2.new(1, 24, 0, 1),
+		BackgroundColor3 = "Stroke",
+		BackgroundTransparency = 0.9,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+		Parent = head,
+	})
 	local badge = create("TextLabel", {
 		Name = "Badge",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -rightPad, 0, 2),
-		Size = UDim2.fromOffset(0, 19),
+		Size = UDim2.fromOffset(0, 18),
 		AutomaticSize = Enum.AutomaticSize.X,
 		BackgroundColor3 = "Element",
 		Text = "",
@@ -6002,7 +6513,7 @@ local function sectionHeader(section, opts, parent)
 	padding(badge, 0, 8, 0, 8)
 	local chevron
 	if opts.Collapsible then
-		chevron = icon(head, "chevron-down", 16, "SubText", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 3), ZIndex = 4 })
+		chevron = icon(head, "chevron-down", 16, "SubText", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 2), ZIndex = 4 })
 	end
 	return head, title, desc, badge, chevron
 end
@@ -6059,9 +6570,11 @@ function Tab:Section(opts)
 		frame.BackgroundTransparency = 1
 		unbind(frame, "BackgroundColor3")
 	else
-		glass(frame, 0.12)
-		corner(14, frame)
-		frameStroke = stroke(frame, 0.93)
+		-- Glass card: see-through, with an edge that is brighter at the top.
+		glass(frame, 0.32)
+		corner(12, frame)
+		frameStroke = stroke(frame, 0.84)
+		create("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.35, 0.45), NumberSequenceKeypoint.new(1, 0.7) }), Parent = frameStroke })
 		padding(frame, 12, 12, 12, 12)
 	end
 	list(frame, 6)
@@ -6075,7 +6588,7 @@ function Tab:Section(opts)
 		ZIndex = 2,
 		Parent = frame,
 	})
-	local bodyLayout = list(body, 6)
+	local bodyLayout = list(body, 4)
 	local section = newContainer(window, page, body, nil, nil)
 	section.Kind = "Section"
 	section.Name = tostring(opts.Name or opts.Title or "")
@@ -6143,13 +6656,18 @@ function Section:Expand(open, instant)
 	if self.Chevron then
 		tween(self.Chevron, { Rotation = open and 0 or -90 }, instant and 0 or 0.3)
 	end
+	if self.HeadDivider and self.HeaderFrame then
+		local t = instant and 0 or 0.25
+		tween(self.HeadDivider, { BackgroundTransparency = open and 0.9 or 1 }, t)
+		tween(self.HeaderFrame, { Size = UDim2.new(1, 0, 0, self.HeadH + (open and 11 or 0)) }, t)
+	end
 	local ratio = self.Window:Ratio()
 	local contentH = layout and (layout.AbsoluteContentSize.Y / ratio) or 0
 	if contentH <= 0 then
 		contentH = 0
 		for _, e in ipairs(self.Elements) do
 			if e.Frame.Visible then
-				contentH += (e.Height or 40) + 6
+				contentH += (e.Height or 40) + 4
 			end
 		end
 	end
@@ -6240,7 +6758,7 @@ function Section:Group(opts)
 		Parent = self.ElementParent or self.Frame,
 	})
 	local inner = create("Frame", { Name = "Inner", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = frame })
-	local layout = list(inner, 6)
+	local layout = list(inner, 4)
 	if opts.Indent ~= false and (opts.DependsOn or opts.Indent) then
 		padding(inner, 0, 0, 0, 12)
 		local line = create("Frame", { Name = "Line", BackgroundColor3 = "AccentA", BackgroundTransparency = 0.6, BorderSizePixel = 0, Position = UDim2.fromOffset(3, 4), Size = UDim2.new(0, 2, 1, -8), Parent = frame })
@@ -6298,37 +6816,64 @@ Section.AddDependencyBox = Section.Group
 -- ======================================================================
 function Tab:TabBox(opts)
 	opts = type(opts) == "string" and { Name = opts } or (opts or {})
-	local section = self:Section({ Name = opts.Name, Icon = opts.Icon, Side = opts.Side, Description = opts.Description })
+	-- The little tabs are the card's header: pills sized to their text, a highlight that
+	-- slides between them and a divider underneath.
+	local section = self:Section({ Side = opts.Side })
+	section.Name = tostring(opts.Name or "")
 	local window = section.Window
-	local bar = create("Frame", {
-		Name = "TabBar",
-		BackgroundColor3 = "Field",
-		BackgroundTransparency = 0.3,
-		Size = UDim2.new(1, 0, 0, 32),
-		LayoutOrder = 0,
-		Parent = section.Body,
+	local pillH = window.Mobile and 32 or 28
+	local head = create("Frame", { Name = "TabHeader", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, pillH + 11), LayoutOrder = 0, ZIndex = 3, Parent = section.Frame })
+	create("Frame", {
+		Name = "Divider",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, -12, 1, 0),
+		Size = UDim2.new(1, 24, 0, 1),
+		BackgroundColor3 = "Stroke",
+		BackgroundTransparency = 0.9,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+		Parent = head,
 	})
-	corner(10, bar)
-	stroke(bar, 0.94)
-	local hl = create("Frame", { Name = "Highlight", BackgroundColor3 = "Element", Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6), Parent = bar })
+	local bar = create("ScrollingFrame", {
+		Name = "TabBar",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 0,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		Size = UDim2.new(1, 0, 0, pillH),
+		ZIndex = 3,
+		Parent = head,
+	})
+	local hl = create("Frame", { Name = "Highlight", BackgroundColor3 = "Element", BackgroundTransparency = 0.35, Size = UDim2.fromOffset(60, pillH), Visible = false, ZIndex = 3, Parent = bar })
 	corner(8, hl)
-	stroke(hl, 0.88)
-	local pills = create("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(3, 0), Size = UDim2.new(1, -6, 1, 0), Parent = bar })
-	local box = { Section = section, Tabs = {}, Bar = bar }
-	-- Every pill is the same width, so positions are simple fractions.
-	local function layout(animate)
-		local n = math.max(1, #box.Tabs)
-		for i, t in ipairs(box.Tabs) do
-			t.Pill.Position = UDim2.fromScale((i - 1) / n, 0)
-			t.Pill.Size = UDim2.fromScale(1 / n, 1)
-			if t == box.Current then
-				local target = { Position = UDim2.new((i - 1) / n, 3, 0, 3), Size = UDim2.new(1 / n, i == n and -6 or -3, 1, -6) }
-				if animate then
-					tween(hl, target, 0.32, Enum.EasingStyle.Back)
-				else
-					setProps(hl, target)
-				end
+	stroke(hl, 0.84)
+	local items = create("Frame", { Name = "Items", BackgroundTransparency = 1, Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 4, Parent = bar })
+	list(items, 4, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
+	local box = { Section = section, Tabs = {}, Bar = head }
+	local function pillX(entry)
+		local x = 0
+		for _, t in ipairs(box.Tabs) do
+			if t == entry then
+				return x
 			end
+			x += t.Width + 4
+		end
+		return x
+	end
+	local function layout(animate)
+		local current = box.Current
+		if not current then
+			hl.Visible = false
+			return
+		end
+		local target = { Position = UDim2.fromOffset(pillX(current), 0), Size = UDim2.fromOffset(current.Width, pillH) }
+		hl.Visible = true
+		if animate then
+			tween(hl, target, 0.3, Enum.EasingStyle.Back)
+		else
+			setProps(hl, target)
 		end
 	end
 	local function selectBox(entry)
@@ -6342,17 +6887,28 @@ function Tab:TabBox(opts)
 	end
 	function box:Tab(name)
 		name = type(name) == "table" and (name.Name or name.Title) or tostring(name)
-		local pill = create("TextButton", { AutoButtonColor = false, Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = pills })
-		local label = text({ Parent = pill, Text = name, Font = "SemiBold", Size = 12, Color = "SubText", XAlign = Enum.TextXAlignment.Center, Sz = UDim2.fromScale(1, 1), Truncate = true })
+		local width = math.floor(measure(name, 13).X + 28)
+		local pill = create("TextButton", { Name = "Pill_" .. name, AutoButtonColor = false, Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(width, pillH), LayoutOrder = #self.Tabs + 1, ZIndex = 4, Parent = items })
+		local label = text({ Parent = pill, Text = name, Font = "SemiBold", Size = 13, Color = "SubText", XAlign = Enum.TextXAlignment.Center, Sz = UDim2.fromScale(1, 1), Z = 5 })
 		local frame = create("Frame", { Name = "Box_" .. name, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Visible = false, Parent = section.Body })
-		list(frame, 6)
+		list(frame, 4)
 		local container = newContainer(window, section.Page, frame, section, section)
 		container.Name = name
-		local entry = { Pill = pill, Label = label, Frame = frame, Container = container }
+		local entry = { Pill = pill, Label = label, Frame = frame, Container = container, Width = width }
 		container.Expand = function()
 			selectBox(entry)
 		end
 		table.insert(self.Tabs, entry)
+		pill.MouseEnter:Connect(function()
+			if box.Current ~= entry then
+				tween(label, { TextColor3 = Theme.Text }, 0.12)
+			end
+		end)
+		pill.MouseLeave:Connect(function()
+			if box.Current ~= entry then
+				tween(label, { TextColor3 = Theme.SubText }, 0.12)
+			end
+		end)
 		pill.Activated:Connect(function()
 			if box.Current ~= entry then
 				sfx("Click")
@@ -6376,11 +6932,14 @@ end
 Tab.AddRightTabbox = function(self, name)
 	return self:TabBox({ Name = name, Side = "Right" })
 end
+end
+local Element, recentLongPress, newElement, register, hitbox, rightGroup, reserve
+do
 
 -- ======================================================================
 -- Elements: what every element shares
 -- ======================================================================
-local Element = {}
+Element = {}
 Element.__index = Element
 Library.ElementClass = Element
 Library.FlagChanged = Signal.new()
@@ -6396,11 +6955,11 @@ local function deepCopy(v)
 	return t
 end
 
-local function recentLongPress()
+function recentLongPress()
 	return os.clock() - (Context.LongPressAt or 0) < 0.8
 end
 
-local function newElement(container, kind, opts, height)
+function newElement(container, kind, opts, height)
 	opts = opts or {}
 	local window = container.Window
 	container.Count += 1
@@ -6411,17 +6970,18 @@ local function newElement(container, kind, opts, height)
 	end
 	local top = description and base + 16 or base
 	local h = height and (height + (top - base)) or top
+	-- Rows are flat: no box until you hover them or open them.
 	local frame = create("Frame", {
 		Name = kind .. "_" .. tostring(opts.Name or opts.Title or opts.Text or ""),
 		Size = UDim2.new(1, 0, 0, h),
-		BackgroundColor3 = "Element",
-		BackgroundTransparency = 0.45,
+		BackgroundColor3 = "ElementHover",
+		BackgroundTransparency = 1,
 		LayoutOrder = container.Count,
 		ClipsDescendants = true,
 		Parent = container.ElementParent or container.Frame,
 	})
-	corner(10, frame)
-	local s = stroke(frame, 0.95)
+	corner(8, frame)
+	local s = stroke(frame, 1)
 	local indicator = create("Frame", {
 		Name = "Indicator",
 		AnchorPoint = Vector2.new(0, 0.5),
@@ -6497,7 +7057,7 @@ local function newElement(container, kind, opts, height)
 	return e
 end
 
-local function register(e, opts)
+function register(e, opts)
 	local flag = opts.Flag or opts.Idx or opts.Id
 	e.Flag = flag
 	if flag then
@@ -6521,7 +7081,7 @@ local function register(e, opts)
 end
 
 -- A button over the whole row, above the labels.
-local function hitbox(parent, z, size, pos)
+function hitbox(parent, z, size, pos)
 	return create("TextButton", {
 		Name = "Hit",
 		AutoButtonColor = false,
@@ -6584,14 +7144,45 @@ function Element:ValueText()
 	return tostring(v)
 end
 
+-- Row background: nothing at rest, a soft box on hover, a clearer one while open.
+function Element:_restLook()
+	if self.Active then
+		return 0.55, 0.93
+	end
+	return 1, 1
+end
+
+function Element:_hoverLook()
+	if self.Active then
+		return 0.5, 0.92
+	end
+	return 0.6, 0.95
+end
+
+function Element:_paintRow(time)
+	local bg, line
+	if self.Hovering and not self.Locked then
+		bg, line = self:_hoverLook()
+	else
+		bg, line = self:_restLook()
+	end
+	tween(self.Frame, { BackgroundTransparency = bg }, time or 0.18)
+	tween(self.Stroke, { Transparency = line }, time or 0.18)
+end
+
 function Element:SetHover(on)
 	if self.Locked or (Library.Mobile and on) then
 		return
 	end
 	self.Hovering = on
-	tween(self.Frame, { BackgroundTransparency = on and 0.12 or 0.45, BackgroundColor3 = on and Theme.ElementHover or Theme.Element }, 0.18)
-	tween(self.Stroke, { Transparency = on and 0.88 or 0.95 }, 0.18)
-	tween(self.Indicator, { Size = UDim2.fromOffset(2, on and 16 or 0) }, on and 0.3 or 0.2, on and Enum.EasingStyle.Back or Enum.EasingStyle.Quint)
+	self:_paintRow()
+	tween(self.Indicator, { Size = UDim2.fromOffset(2, on and 14 or 0) }, on and 0.3 or 0.2, on and Enum.EasingStyle.Back or Enum.EasingStyle.Quint)
+end
+
+-- Open panels (dropdowns, colour pickers...) keep the row boxed so it reads as one piece.
+function Element:SetActive(on)
+	self.Active = on == true
+	self:_paintRow(0.22)
 end
 
 function Element:SetTitle(t)
@@ -6720,9 +7311,8 @@ function Element:Highlight()
 	s.Transparency = 0
 	s.Thickness = 1.5
 	tween(s, { Transparency = 0.95 }, 1.6, Enum.EasingStyle.Quad)
-	self.Frame.BackgroundColor3 = Theme.ElementHover
-	self.Frame.BackgroundTransparency = 0
-	tween(self.Frame, { BackgroundTransparency = 0.45, BackgroundColor3 = Theme.Element }, 1.2, Enum.EasingStyle.Quad)
+	self.Frame.BackgroundTransparency = 0.2
+	tween(self.Frame, { BackgroundTransparency = (self:_restLook()) }, 1.2, Enum.EasingStyle.Quad)
 	task.delay(1.6, function()
 		s.Thickness = 1
 		s.Color = Theme.Stroke
@@ -6791,7 +7381,7 @@ function Element:ContextItems()
 end
 
 -- Right side of a row (switches, pills, swatches) laid out right to left.
-local function rightGroup(e)
+function rightGroup(e)
 	local group = create("Frame", {
 		Name = "Right",
 		BackgroundTransparency = 1,
@@ -6808,13 +7398,36 @@ local function rightGroup(e)
 	return group
 end
 
-local function reserve(e, width)
-	e.RightWidth = (e.RightWidth or 0) + width + (e.RightWidth and e.RightWidth > 0 and 6 or 0)
-	e.Title.Size = UDim2.new(1, -24 - e.RightWidth - 6, 0, 18)
+-- Title and description fill what the left box (TitleX) and the right group leave free.
+local function fitTitle(e)
+	local x = e.TitleX or 12
+	local rw, extra = e.RightWidth or 0, e.ExtraRight or 0
+	local used = rw + extra + ((rw > 0 and extra > 0) and 6 or 0)
+	local w = -(x + 12) - (used > 0 and used + 6 or 0)
+	e.Title.Position = UDim2.fromOffset(x, e.Title.Position.Y.Offset)
+	e.Title.Size = UDim2.new(1, w, 0, 18)
 	if e.Desc then
-		e.Desc.Size = UDim2.new(1, -24 - e.RightWidth - 6, 0, 15)
+		e.Desc.Position = UDim2.fromOffset(x, e.Desc.Position.Y.Offset)
+		e.Desc.Size = UDim2.new(1, w, 0, 15)
 	end
 end
+
+function reserve(e, width)
+	e.RightWidth = (e.RightWidth or 0) + width + ((e.RightWidth or 0) > 0 and 6 or 0)
+	fitTitle(e)
+end
+
+-- Every toggle that follows the "Toggle style" setting.
+local StyledToggles = setmetatable({}, { __mode = "k" })
+Library.SettingChanged:Connect(function(key)
+	if key == "ToggleStyle" then
+		for e in pairs(StyledToggles) do
+			if not e.Destroyed then
+				e:_applyStyle()
+			end
+		end
+	end
+end)
 
 -- ======================================================================
 -- Toggle
@@ -6822,70 +7435,118 @@ end
 function Section:Toggle(opts)
 	opts = opts or {}
 	local e = newElement(self, "Toggle", opts)
-	local checkbox = opts.Style == "Checkbox" or opts.Checkbox == true
 	e.Value = opts.Default == true or opts.Value == true
 	if opts.Risky then
 		bind(e.Title, "TextColor3", "Warning")
 	end
 	local right = rightGroup(e)
-	local track, fill, knob, check, checkScale, trackStroke
-	if checkbox then
-		track = create("Frame", { Name = "Box", Size = UDim2.fromOffset(22, 22), BackgroundColor3 = "Field", LayoutOrder = 100, ZIndex = 6, Parent = right })
-		corner(7, track)
-		trackStroke = stroke(track, 0.8)
-		fill = create("Frame", { Name = "Fill", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6, Parent = track })
-		corner(7, fill)
-		gradient(fill, 45)
-		check = icon(fill, "check", 15, "OnAccent", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 7 })
+	local boxSize = e.Window.Mobile and 20 or 18
+	-- Only the look in use gets built; the other one is made if the setting changes.
+	local box, boxStroke, boxFill, checkScale, boxScale
+	local function ensureBox()
+		if box then
+			return
+		end
+		box = create("Frame", {
+			Name = "Box",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 12, 0, e.Desc and 17 or e.TopHeight / 2),
+			Size = UDim2.fromOffset(boxSize, boxSize),
+			BackgroundColor3 = "Field",
+			ZIndex = 6,
+			Parent = e.Frame,
+		})
+		corner(5, box)
+		boxStroke = stroke(box, 0.7)
+		boxFill = create("Frame", { Name = "Fill", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6, Parent = box })
+		corner(5, boxFill)
+		gradient(boxFill, 45)
+		local check = icon(boxFill, "check", boxSize - 5, "OnAccent", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 7 })
 		checkScale = create("UIScale", { Scale = 0, Parent = check })
-		reserve(e, 22)
-	else
+		boxScale = create("UIScale", { Parent = box })
+		e.Box = box
+	end
+	local track, trackStroke, fill, shadow, knob
+	local function ensureSwitch()
+		if track then
+			return
+		end
 		track = create("Frame", { Name = "Switch", Size = UDim2.fromOffset(42, 24), BackgroundColor3 = "Field", LayoutOrder = 100, ZIndex = 6, Parent = right })
 		corner(UDim.new(1, 0), track)
 		trackStroke = stroke(track, 0.86)
 		fill = create("Frame", { Name = "Fill", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6, Parent = track })
 		corner(UDim.new(1, 0), fill)
 		gradient(fill)
-		local shadow = create("Frame", { Name = "KnobShadow", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 3, 0.5, 1), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.75, ZIndex = 7, Parent = track })
+		shadow = create("Frame", { Name = "KnobShadow", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 3, 0.5, 1), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.75, ZIndex = 7, Parent = track })
 		corner(UDim.new(1, 0), shadow)
 		knob = create("Frame", { Name = "Knob", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 3, 0.5, 0), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = "SubText", ZIndex = 8, Parent = track })
 		corner(UDim.new(1, 0), knob)
 		e.KnobShadow = shadow
-		reserve(e, 42)
+		e.Track, e.Knob, e.Fill = track, knob, fill
 	end
-	e.Track, e.Knob, e.Fill = track, knob, fill
 	local function render(animate)
 		local on = e.Value
 		local t = animate and 0.25 or 0
-		paint(fill, { BackgroundTransparency = on and 0 or 1 }, animate, t)
-		paint(trackStroke, { Transparency = on and 1 or (checkbox and 0.8 or 0.86) }, animate, t)
-		if checkbox then
-			if animate then
+		if box then
+			paint(boxFill, { BackgroundTransparency = on and 0 or 1 }, animate, t)
+			paint(boxStroke, { Transparency = on and 1 or 0.7 }, animate, t)
+			if animate and e.ToggleStyle == "Checkbox" then
 				tween(checkScale, { Scale = on and 1 or 0 }, on and 0.35 or 0.15, on and Enum.EasingStyle.Back or Enum.EasingStyle.Quint)
 			else
 				checkScale.Scale = on and 1 or 0
 			end
+		end
+		if not track then
 			return
 		end
+		paint(fill, { BackgroundTransparency = on and 0 or 1 }, animate, t)
+		paint(trackStroke, { Transparency = on and 1 or 0.86 }, animate, t)
 		local x = on and 21 or 3
 		local color = on and Color3.new(1, 1, 1) or Theme.SubText
-		if animate and Settings.Animations then
+		if animate and Settings.Animations and e.ToggleStyle == "Switch" then
 			-- The knob stretches while it moves, then snaps into place.
 			tween(knob, { Size = UDim2.fromOffset(24, 18), Position = UDim2.new(0, on and 15 or 3, 0.5, 0), BackgroundColor3 = color }, 0.12, Enum.EasingStyle.Quad)
-			tween(e.KnobShadow, { Size = UDim2.fromOffset(24, 18), Position = UDim2.new(0, on and 15 or 3, 0.5, 1) }, 0.12, Enum.EasingStyle.Quad)
+			tween(shadow, { Size = UDim2.fromOffset(24, 18), Position = UDim2.new(0, on and 15 or 3, 0.5, 1) }, 0.12, Enum.EasingStyle.Quad)
 			task.delay(0.12, function()
 				if e.Value == on then
 					tween(knob, { Size = UDim2.fromOffset(18, 18), Position = UDim2.new(0, x, 0.5, 0) }, 0.3, Enum.EasingStyle.Back)
-					tween(e.KnobShadow, { Size = UDim2.fromOffset(18, 18), Position = UDim2.new(0, x, 0.5, 1) }, 0.3, Enum.EasingStyle.Back)
+					tween(shadow, { Size = UDim2.fromOffset(18, 18), Position = UDim2.new(0, x, 0.5, 1) }, 0.3, Enum.EasingStyle.Back)
 				end
 			end)
 		else
 			knob.Size = UDim2.fromOffset(18, 18)
 			knob.Position = UDim2.new(0, x, 0.5, 0)
 			knob.BackgroundColor3 = color
-			e.KnobShadow.Position = UDim2.new(0, x, 0.5, 1)
+			shadow.Size = UDim2.fromOffset(18, 18)
+			shadow.Position = UDim2.new(0, x, 0.5, 1)
 		end
 	end
+	-- Style = "Checkbox"/"Switch" pins the look; otherwise it follows the Toggles setting.
+	local forced = opts.Style or (opts.Checkbox == true and "Checkbox") or (opts.Switch == true and "Switch") or nil
+	function e:_applyStyle()
+		local style = forced or Settings.ToggleStyle
+		style = style == "Switch" and "Switch" or "Checkbox"
+		self.ToggleStyle = style
+		if style == "Checkbox" then
+			ensureBox()
+		else
+			ensureSwitch()
+		end
+		if box then
+			box.Visible = style == "Checkbox"
+		end
+		if track then
+			track.Visible = style == "Switch"
+		end
+		self.TitleX = style == "Checkbox" and (12 + boxSize + 10) or 12
+		self.ExtraRight = style == "Switch" and 42 or 0
+		fitTitle(self)
+		render(false)
+	end
+	if not forced then
+		StyledToggles[e] = true
+	end
+	e:_applyStyle()
 	e.Render = render
 	painter(function()
 		render(false)
@@ -6908,13 +7569,23 @@ function Section:Toggle(opts)
 		return e:ContextItems()
 	end)
 	hit.InputBegan:Connect(function(input)
-		if isPress(input) and knob then
+		if not isPress(input) or e.Locked then
+			return
+		end
+		if e.ToggleStyle == "Switch" and knob then
 			tween(knob, { Size = UDim2.fromOffset(22, 18) }, 0.1)
+		elseif boxScale then
+			tween(boxScale, { Scale = 0.86 }, 0.08)
 		end
 	end)
 	hit.InputEnded:Connect(function(input)
-		if isPress(input) and knob then
+		if not isPress(input) then
+			return
+		end
+		if e.ToggleStyle == "Switch" and knob then
 			tween(knob, { Size = UDim2.fromOffset(18, 18) }, 0.25, Enum.EasingStyle.Back)
+		elseif boxScale then
+			tween(boxScale, { Scale = 1 }, 0.3, Enum.EasingStyle.Back)
 		end
 	end)
 	hit.Activated:Connect(function(input)
@@ -7490,8 +8161,8 @@ function Section:Button(opts, callback)
 			bind(e.Title, "TextColor3", "Text")
 			bind(img, "ImageColor3", "SubText")
 			bind(e.Stroke, "Color", "Stroke")
-			e.Stroke.Transparency = 0.95
-			frame.BackgroundTransparency = 0.45
+			e.Stroke.Transparency = 0.93
+			frame.BackgroundTransparency = 0.5
 			if e.Desc then
 				bind(e.Desc, "TextColor3", "SubText")
 				e.Desc.TextTransparency = 0
@@ -7532,6 +8203,13 @@ function Section:Button(opts, callback)
 		end
 	end
 	applyStyle()
+	-- Buttons keep a soft card so they still look pressable between flat rows.
+	function e:_restLook()
+		return 0.5, 0.93
+	end
+	function e:_hoverLook()
+		return 0.2, 0.88
+	end
 	function e:SetHover(on)
 		if self.Locked then
 			return
@@ -7777,6 +8455,8 @@ function Section:Buttons(list1)
 	return out
 end
 Section.ButtonRow = Section.Buttons
+end
+do
 
 -- ======================================================================
 -- Textbox
@@ -8071,16 +8751,28 @@ function Section:Dropdown(opts)
 	end
 	e.Value = normalize(opts.Default or opts.Value)
 
-	local valueLabel = text({
+	-- The value sits in a field with a chevron, so the row reads as "pick something".
+	local fieldH = mobile and 32 or 28
+	local field = create("Frame", {
+		Name = "Field",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -8, 0, base / 2),
+		Size = UDim2.new(0.5, -14, 0, fieldH),
+		BackgroundColor3 = "Field",
+		BackgroundTransparency = 0.25,
+		ZIndex = 3,
 		Parent = e.Frame,
+	})
+	corner(8, field)
+	local fieldStroke = stroke(field, 0.9)
+	local valueLabel = text({
+		Parent = field,
 		Name = "Value",
 		Text = "",
-		Color = "SubText",
+		Color = "Text",
 		Size = 13,
-		XAlign = Enum.TextXAlignment.Right,
-		Anchor = Vector2.new(1, 0),
-		Pos = UDim2.new(1, -36, 0, (base - 18) / 2),
-		Sz = UDim2.new(0.5, -30, 0, 18),
+		Pos = UDim2.fromOffset(10, 0),
+		Sz = UDim2.new(1, -36, 1, 0),
 		Truncate = true,
 		Z = 4,
 	})
@@ -8088,7 +8780,7 @@ function Section:Dropdown(opts)
 	if e.Desc then
 		e.Desc.Size = UDim2.new(0.5, -12, 0, 15)
 	end
-	local chevron = icon(e.Frame, "chevron-down", 16, "SubText", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0, base / 2), ZIndex = 4 })
+	local chevron = icon(field, "chevron-down", 15, "SubText", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), ZIndex = 4 })
 	local head = hitbox(e.Frame, 5, UDim2.new(1, 0, 0, base))
 	attachContext(head, function()
 		return e:ContextItems()
@@ -8227,6 +8919,8 @@ function Section:Dropdown(opts)
 	end
 	local function paintOptions(smooth)
 		valueLabel.Text = displayText()
+		local empty = (e.Multi and #e.Value == 0) or (not e.Multi and e.Value == nil)
+		bind(valueLabel, "TextColor3", empty and "SubText" or "Text")
 		for v, b in pairs(buttons) do
 			local on = isSelected(v)
 			local info = rows[v]
@@ -8256,6 +8950,8 @@ function Section:Dropdown(opts)
 			return
 		end
 		open = state
+		e:SetActive(open)
+		paint(fieldStroke, { Color = open and Theme.AccentA or Theme.Stroke, Transparency = open and 0.55 or 0.9 }, true, 0.2)
 		if open then
 			sfx("Pop")
 			search.Text = ""
@@ -9195,6 +9891,7 @@ local function colorController(host, opts, swatch, solid, alphaPart, isInline)
 		local p = ensurePanel()
 		p.SetOpen(open)
 		host.OpenPanel = open and picker or nil
+		host:SetActive(host.OpenPanel ~= nil)
 		host:_resize(open and (host.BaseHeight + p.Height + 6) or host.BaseHeight)
 		if open then
 			startColor = state.Color()
@@ -9323,6 +10020,8 @@ Section.AddColorPicker = function(self, idx, opts)
 	opts.Name = opts.Name or opts.Title or opts.Text
 	return self:Colorpicker(opts)
 end
+end
+do
 
 -- ======================================================================
 -- Blocks: elements that size themselves to their content
@@ -9333,7 +10032,7 @@ local function newBlock(container, kind, opts, card)
 	local frame = create("Frame", {
 		Name = kind,
 		BackgroundColor3 = "Element",
-		BackgroundTransparency = card == false and 1 or 0.45,
+		BackgroundTransparency = card == false and 1 or 0.6,
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		LayoutOrder = container.Count,
@@ -9343,7 +10042,7 @@ local function newBlock(container, kind, opts, card)
 	local s
 	if card ~= false then
 		corner(10, frame)
-		s = stroke(frame, 0.95)
+		s = stroke(frame, 0.94)
 	else
 		s = stroke(frame, 1)
 	end
@@ -10552,6 +11251,8 @@ function Section:Card(opts)
 	e.TitleLabel, e.Body = title, body
 	return e
 end
+end
+do
 
 -- ======================================================================
 -- Configs (per game): every element with a Flag is saved
@@ -10860,6 +11561,12 @@ function Window:BuildSettings(opts)
 
 	-- ---------------- Window ----------------
 	local look2 = look:Section({ Name = "Window", Icon = "app-window", Side = "Right" })
+	local navPick = noSave(look2:Segmented({ Setting = "Navigation", Name = "Tabs", Options = { "Sidebar", "Top" }, Default = window.Nav, Callback = function(v)
+		Library:SetSetting("Navigation", v)
+	end }))
+	noSave(look2:Segmented({ Setting = "ToggleStyle", Name = "Toggles", Options = { "Switch", "Checkbox" }, Default = Settings.ToggleStyle, Callback = function(v)
+		Library:SetSetting("ToggleStyle", v)
+	end }))
 	noSave(look2:Slider({ Setting = "MenuScale", Scale = 100, Name = "Menu size", Min = 60, Max = 150, Default = math.floor((Settings.MenuScale or 1) * 100), Suffix = "%", Callback = function(v)
 		Library:SetSetting("MenuScale", v / 100)
 	end }))
@@ -10874,7 +11581,7 @@ function Window:BuildSettings(opts)
 			Library:SetFont(name)
 		end
 	end }))
-	noSave(look2:Toggle({ Setting = "Collapsed", Name = "Collapsed sidebar", Default = self.Collapsed, Callback = function(on)
+	noSave(look2:Toggle({ Setting = "Collapsed", Name = "Collapsed sidebar", Default = self.Collapsed, DependsOn = navPick, DependsValue = "Sidebar", Callback = function(on)
 		Library:SetSetting("Collapsed", on)
 	end }))
 	noSave(look2:Toggle({ Setting = "Blur", Name = "Blur the game", Description = "Blurs the background while the menu is open", Default = Settings.Blur, Callback = function(on)
@@ -11232,6 +11939,8 @@ function Window:BuildHome(opts)
 	end
 	return tab
 end
+end
+do
 
 -- ======================================================================
 -- Unload
@@ -11335,3 +12044,4 @@ function Window:Filter(query)
 end
 
 return Library
+end
