@@ -53,4 +53,5 @@ Read any value with `UI.Flags.FlagName`.
 
 - Settings (theme, menu key, toggle style, transparency) are saved per player in `PepsiUI/settings.json`.
 - Configs are saved per game in `PepsiUI/configs/<PlaceId>/`.
-- Phones get a floating Pepsi Hub button to open and close the menu.
+- Phones get a floating Pepsi Hub button to open and close the menu. Drag it anywhere; it stays there.
+- The default theme is Christmas (with gentle snowfall you can turn off in Settings > Motion).

@@ -1,9 +1,9 @@
 --[[
-	Pepsi UI v2.1 - starter script
+	Pepsi UI v2.2 - starter script
 	Loads the library from your GitHub. Build your own tabs the same way.
 ]]
 
-local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/pepsi-ui/PepsiUI.lua"))()
+local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/pepsihubUI.txt"))()
 
 local Window = UI:CreateWindow({
 	Title = "Pepsi Hub",

@@ -1,9 +1,9 @@
 --[[
-	Pepsi UI v2.1 demo
+	Pepsi UI v2.2 demo
 	Loads the library from GitHub and builds a window with every element, so you can try it all.
 	Your own scripts load the library the same way (see PepsiUI_Example.lua).
 ]]
-local LIBRARY_URL = "https://raw.githubusercontent.com/Esmam3/67/refs/heads/pepsi-ui/PepsiUI.lua"
+local LIBRARY_URL = "https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/pepsihubUI.txt"
 
 local function pepsiToast(title, body)
 	pcall(function()
@@ -19,7 +19,7 @@ if not chunk then
 end
 local UI = chunk()
 -- ======================================================================
--- Pepsi UI v2.1 demo: every element and feature in one window.
+-- Pepsi UI v2.2 demo: every element and feature in one window.
 -- ======================================================================
 local load = UI:Loader({ Title = "Pepsi Hub", Subtitle = "Pepsi UI demo" })
 load:Step("Building the menu", 0.15)
@@ -27,7 +27,7 @@ load:Step("Building the menu", 0.15)
 local Window = UI:CreateWindow({
 	Title = "Pepsi Hub",
 	Subtitle = "UI demo",
-	Badge = "v2.1",
+	Badge = "v2.2",
 	ToggleKey = Enum.KeyCode.RightControl,
 	StartHidden = true,
 })
@@ -36,6 +36,7 @@ local Window = UI:CreateWindow({
 Window:Category("Overview")
 Window:BuildHome({
 	Changelog = {
+		{ Title = "Pepsi UI v2.2", Changes = { "Christmas theme with gentle snowfall (new default)", "The Pepsi Hub button stays exactly where you drop it", "Dragging the top bar no longer turns the camera", "Light theme fixed everywhere" } },
 		{ Title = "Pepsi UI v2.1", Changes = { "Cleaner see-through look and new Pepsi blue colours", "Tabs on the side or across the top, switches or checkboxes: pick in Settings", "The Pepsi Hub logo is the open button" } },
 		{ Title = "Pepsi UI v2", Changes = { "Live theme editor with a picker for every colour", "Range sliders, chips, steppers, segmented pills", "Sounds, island notifications, command search" } },
 	},
@@ -191,7 +192,7 @@ end })
 local graph = progress:Graph({ Name = "Coins per second", Suffix = "/s" })
 local logs = Live:Section({ Name = "Console", Icon = "terminal", Side = "Right" })
 local console = logs:Console({ Name = "Farm log", Height = 170 })
-console:Log("Pepsi UI v2.1 loaded", "Success")
+console:Log("Pepsi UI v2.2 loaded", "Success")
 logs:Viewport({ Object = "Character", Height = 170 })
 
 -- ---------------------------------------------------------------- Feedback

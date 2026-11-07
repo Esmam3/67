@@ -111,7 +111,7 @@ local LocalPlayer = Players.LocalPlayer
 local rgb = Color3.fromRGB
 
 local Library = {
-	Version = "2.1.0",
+	Version = "2.2.0",
 	Flags = {},
 	Options = {},
 	Toggles = {},
@@ -129,7 +129,7 @@ Library.__index = Library
 -- Settings that belong to the person, not the game. Saved in PepsiUI/settings.json so every
 -- Pepsi Hub script opens with the same look.
 local Settings = {
-	Theme = "Pepsi",
+	Theme = "Christmas",
 	Font = "Builder Sans",
 	Navigation = "Sidebar",
 	ToggleStyle = "Switch",
@@ -151,6 +151,7 @@ local Settings = {
 	NotifyDuration = 1,
 	Tooltips = true,
 	Fizz = false,
+	Snow = true,
 	CursorGlow = false,
 	Blur = false,
 	MenuScale = 1,
@@ -352,6 +353,15 @@ local DefaultTheme = {
 -- Presets only list what they change; everything else comes from the Pepsi look.
 local Themes = {
 	Pepsi = {},
+	-- Winter evergreen with a cranberry accent and a warm gold second accent. Gentle snow falls
+	-- behind the content while this theme is on (Settings > Motion > Snowfall).
+	Christmas = {
+		AccentA = rgb(216, 66, 72), AccentB = rgb(234, 184, 96),
+		Background = rgb(11, 16, 14), Sidebar = rgb(13, 19, 17), Section = rgb(17, 25, 22),
+		Element = rgb(25, 35, 31), ElementHover = rgb(32, 44, 39), Field = rgb(12, 18, 15),
+		Text = rgb(242, 238, 230), SubText = rgb(162, 172, 162), Dim = rgb(100, 112, 104),
+		Success = rgb(86, 204, 124), Warning = rgb(240, 186, 90), Error = rgb(236, 82, 82),
+	},
 	Midnight = {
 		AccentA = rgb(92, 140, 255), AccentB = rgb(156, 92, 255),
 		Background = rgb(9, 10, 18), Sidebar = rgb(12, 13, 24), Section = rgb(16, 18, 32),
@@ -430,11 +440,14 @@ local Themes = {
 	},
 }
 Library.Themes = Themes
-local ThemeOrder = { "Pepsi", "Midnight", "Amoled", "Light", "Ocean", "Crimson", "Violet", "Mint", "Sunset", "Rose", "Forest", "Gold", "Cyber", "Mono" }
+local ThemeOrder = { "Christmas", "Pepsi", "Midnight", "Amoled", "Light", "Ocean", "Crimson", "Violet", "Mint", "Sunset", "Rose", "Forest", "Gold", "Cyber", "Mono" }
 Library.ThemeOrder = ThemeOrder
 
 local Theme = {}
 for k, v in pairs(DefaultTheme) do
+	Theme[k] = v
+end
+for k, v in pairs(Themes[Settings.Theme] or {}) do
 	Theme[k] = v
 end
 Library.Theme = Theme
@@ -481,15 +494,18 @@ end
 -- ======================================================================
 local Bindings = {} -- slot -> { [instance] = { [property] = true } }
 for slot in pairs(DefaultTheme) do
-	Bindings[slot] = setmetatable({}, { __mode = "k" })
+	Bindings[slot] = {}
 end
-Bindings.OnAccent = setmetatable({}, { __mode = "k" })
-Bindings.Shadow = setmetatable({}, { __mode = "k" })
+Bindings.OnAccent = {}
+Bindings.Shadow = {}
 
-local Gradients = setmetatable({}, { __mode = "k" }) -- UIGradient -> { a, b } slot names
-local Glass = setmetatable({}, { __mode = "k" }) -- object -> base transparency
-local Corners = setmetatable({}, { __mode = "k" }) -- UICorner -> base radius
-local FontObjects = setmetatable({}, { __mode = "k" }) -- text object -> weight name
+-- These hold Instances with strong keys on purpose: Roblox can collect an Instance's Lua handle from a
+-- weak table while the Instance is still on screen, and it would then miss theme/font/roundness changes.
+-- Objects that left the game are swept out every few seconds instead (see the sweeper below).
+local Gradients = {} -- UIGradient -> { a, b } slot names
+local Glass = {} -- object -> base transparency
+local Corners = {} -- UICorner -> base radius
+local FontObjects = {} -- text object -> weight name
 local Painters = {} -- functions that repaint stateful elements
 
 local function bind(object, property, slot)
@@ -686,6 +702,45 @@ function Ticker.Remove(id)
 end
 Library.Ticker = Ticker
 
+-- Sweeper: drops registry entries for objects that have been out of the game for two sweeps in a row
+-- (so something parented a moment later is never lost).
+do
+	local seenOrphan = {}
+	local acc = 0
+	local function sweep(map, nextOrphans)
+		for object in pairs(map) do
+			local gone = false
+			local ok, parent = pcall(function()
+				return object.Parent
+			end)
+			gone = not ok or parent == nil
+			if gone then
+				if seenOrphan[object] then
+					map[object] = nil
+				else
+					nextOrphans[object] = true
+				end
+			end
+		end
+	end
+	Ticker.Add(function(dt)
+		acc += dt
+		if acc < 6 then
+			return
+		end
+		acc = 0
+		local nextOrphans = {}
+		for _, set in pairs(Bindings) do
+			sweep(set, nextOrphans)
+		end
+		sweep(Gradients, nextOrphans)
+		sweep(Glass, nextOrphans)
+		sweep(Corners, nextOrphans)
+		sweep(FontObjects, nextOrphans)
+		seenOrphan = nextOrphans
+	end)
+end
+
 -- Smoothly moves a number towards a target: returns the new value.
 local function approach(current, target, dt, speed)
 	return current + (target - current) * (1 - math.exp(-dt * (speed or 14)))
@@ -730,7 +785,8 @@ end
 -- One drag at a time, shared by sliders, pickers, the window and buttons.
 local Drag = { Active = nil }
 local function startDrag(input, onMove, onEnd)
-	Drag.Active = { Input = input, Touch = isTouch(input), Move = onMove, End = onEnd, Matched = false }
+	local p = input.Position
+	Drag.Active = { Input = input, Touch = isTouch(input), Move = onMove, End = onEnd, Matched = false, Last = Vector2.new(p.X, p.Y) }
 end
 local function stopDrag(input)
 	local d = Drag.Active
@@ -739,16 +795,27 @@ local function stopDrag(input)
 		safeCall(d.End, input)
 	end
 end
+-- Only the finger that started the drag may move or end it; other fingers (joystick, camera) are left alone.
+local function ownsTouch(d, input)
+	if input == d.Input then
+		d.Matched = true
+		return true
+	end
+	if d.Matched or not isTouch(input) then
+		return false
+	end
+	local p = input.Position
+	return (Vector2.new(p.X, p.Y) - d.Last).Magnitude < 48
+end
 connect(UserInputService.InputChanged, function(input)
 	local d = Drag.Active
 	if not d then
 		return
 	end
 	if d.Touch then
-		if input == d.Input then
-			d.Matched = true
-			safeCall(d.Move, input)
-		elseif not d.Matched and isTouch(input) then
+		if ownsTouch(d, input) then
+			local p = input.Position
+			d.Last = Vector2.new(p.X, p.Y)
 			safeCall(d.Move, input)
 		end
 	elseif input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -761,7 +828,7 @@ connect(UserInputService.InputEnded, function(input)
 		return
 	end
 	if d.Touch then
-		if input == d.Input or (not d.Matched and isTouch(input)) then
+		if ownsTouch(d, input) then
 			stopDrag(input)
 		end
 	elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1716,7 +1783,7 @@ local SETTINGS_PATH = Library.Folder .. "/settings.json"
 Library.WindowState = {}
 
 function Library:SaveSettings()
-	local data = { Settings = {}, ThemeColors = {}, Window = Library.WindowState, Version = Library.Version, Schema = 3 }
+	local data = { Settings = {}, ThemeColors = {}, Window = Library.WindowState, Version = Library.Version, Schema = 4 }
 	for k, v in pairs(Settings) do
 		local t = type(v)
 		if t == "string" or t == "number" or t == "boolean" then
@@ -1768,8 +1835,12 @@ function Library:LoadSettings()
 	local data = readJSON(SETTINGS_PATH)
 	-- Settings saved by older versions are skipped so everyone starts on the new look.
 	if not data or (tonumber(data.Schema) or 1) < 3 then
+		loadPreset(Settings.Theme)
+		derive()
 		return
 	end
+	-- Schema 3 still had the old default theme; move those players onto the Christmas default once.
+	local oldDefault = (tonumber(data.Schema) or 1) < 4 and type(data.Settings) == "table" and (data.Settings.Theme == nil or data.Settings.Theme == "Pepsi")
 	if type(data.Settings) == "table" then
 		for k, v in pairs(data.Settings) do
 			local default = DefaultSettings[k]
@@ -1777,6 +1848,9 @@ function Library:LoadSettings()
 				Settings[k] = v
 			end
 		end
+	end
+	if oldDefault then
+		Settings.Theme = DefaultSettings.Theme
 	end
 	if Settings.Theme == "Custom" and type(data.ThemeColors) == "table" then
 		for slot, hex in pairs(data.ThemeColors) do
@@ -1786,7 +1860,8 @@ function Library:LoadSettings()
 			end
 		end
 	elseif not loadPreset(Settings.Theme) then
-		Settings.Theme = "Pepsi"
+		Settings.Theme = DefaultSettings.Theme
+		loadPreset(Settings.Theme)
 	end
 	if type(data.Window) == "table" then
 		Library.WindowState = data.Window
@@ -1802,7 +1877,7 @@ function Library:ResetSettings()
 	for k, v in pairs(DefaultSettings) do
 		Settings[k] = v
 	end
-	loadPreset("Pepsi")
+	loadPreset(DefaultSettings.Theme)
 	applyFonts()
 	applyShape()
 	applyGlass(true)
@@ -3276,6 +3351,18 @@ function Library:CreateWindow(opts)
 		derive()
 	end
 	preloadSounds()
+	-- The Pepsi Hub loader may still be playing its music: fade it out now that the hub is here.
+	pcall(function()
+		local env = getgenv and getgenv()
+		local music = env and env.PepsiHubLoaderMusic
+		if typeof(music) == "Instance" and music:IsA("Sound") then
+			env.PepsiHubLoaderMusic = nil
+			TweenService:Create(music, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
+			task.delay(1.3, function()
+				pcall(music.Destroy, music)
+			end)
+		end
+	end)
 
 	local gui = newScreen("PepsiUI", 200)
 	pcall(function()
@@ -3328,6 +3415,7 @@ function Library:CreateWindow(opts)
 	self.Decor = decor
 	self.Glows = {}
 	self:BuildFizz()
+	self:BuildSnow()
 	if not mobile then
 		self:BuildCursorGlow()
 	end
@@ -4446,6 +4534,62 @@ function Window:BuildFizz()
 	end
 end
 
+-- Soft snowfall for the Christmas theme. Sits behind every element, never takes input,
+-- and only runs while the menu is open.
+function Window:BuildSnow()
+	local layer = create("Frame", { Name = "Snow", BackgroundTransparency = 1, ClipsDescendants = true, Size = UDim2.fromScale(1, 1), Visible = false, Parent = self.Decor })
+	self.SnowLayer = layer
+	local flakes = {}
+	for i = 1, (self.Mobile and 12 or 18) do
+		local size = (i % 5 == 0) and 4 or ((i % 2 == 0) and 3 or 2)
+		local f = create("Frame", {
+			Name = "Flake",
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			BackgroundTransparency = size == 4 and 0.72 or 0.8,
+			BorderSizePixel = 0,
+			Size = UDim2.fromOffset(size, size),
+			Position = UDim2.fromScale(math.random(), math.random()),
+			Parent = layer,
+		})
+		create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = f })
+		table.insert(flakes, { Frame = f, X = f.Position.X.Scale, Y = f.Position.Y.Scale, Speed = 0.018 + size * 0.006 + math.random() * 0.012, Phase = math.random() * 6.28, Sway = 0.004 + math.random() * 0.008 })
+	end
+	local function wanted()
+		return Settings.Snow and Settings.Theme == "Christmas" and not Library.Unloaded
+	end
+	local function run()
+		if self.SnowJob or not wanted() then
+			layer.Visible = false
+			return
+		end
+		self.SnowJob = Ticker.Add(function(dt)
+			if not wanted() then
+				self.SnowJob = nil
+				layer.Visible = false
+				return true
+			end
+			if not self.Open then
+				return
+			end
+			layer.Visible = true
+			local t = os.clock()
+			for _, f in ipairs(flakes) do
+				f.Y += f.Speed * dt
+				if f.Y > 1.03 then
+					f.Y = -0.03
+					f.X = math.random()
+				end
+				f.Frame.Position = UDim2.fromScale(f.X + math.sin(t * 0.8 + f.Phase) * f.Sway, f.Y)
+			end
+		end)
+	end
+	self.RunSnow = run
+	connect(Library.ThemeChanged, function()
+		task.defer(run)
+	end)
+	run()
+end
+
 function Window:BuildCursorGlow()
 	local glow, ringT = glowBlob(self.Decor, 320, "AccentA", 0.02, 10)
 	glow.Visible = false
@@ -4491,7 +4635,9 @@ function Window:BuildCursorGlow()
 end
 
 function Window:_onSetting(key, value)
-	if key == "Fizz" then
+	if key == "Snow" or key == "Theme" then
+		self.RunSnow()
+	elseif key == "Fizz" then
 		self.FizzLayer.Visible = value
 		if value then
 			self.RunFizz()
@@ -4612,7 +4758,9 @@ function Window:BuildToggleButton(opts)
 		AutoButtonColor = false,
 		Text = "",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = type(saved) == "table" and sidePosition(saved.Side, tonumber(saved.Y) or 0.5) or sidePosition("L", 0.5),
+		Position = (type(saved) == "table" and tonumber(saved.X) and tonumber(saved.Y)) and UDim2.fromScale(math.clamp(saved.X, 0, 1), math.clamp(saved.Y, 0, 1))
+			or (type(saved) == "table" and saved.Side and sidePosition(saved.Side, tonumber(saved.Y) or 0.5))
+			or sidePosition("L", 0.5),
 		Size = UDim2.fromOffset(size, size),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -4695,28 +4843,21 @@ function Window:BuildToggleButton(opts)
 	button.MouseButton1Up:Connect(function()
 		tween(scaler, { Scale = 1 }, 0.4, Enum.EasingStyle.Back)
 	end)
-	local function snap()
+	-- The button stays exactly where it's dropped (kept fully on screen) and remembers that spot.
+	local function settle()
 		local screen = gui.AbsoluteSize
 		if screen.X < 10 then
 			return
 		end
 		local p = button.Position
-		local x = p.X.Scale * screen.X + p.X.Offset
-		local y = p.Y.Scale * screen.Y + p.Y.Offset
-		local side = x > screen.X / 2 and "R" or "L"
-		local edge = math.min(0.45, (margin + 4) / screen.Y)
-		local yScale = math.clamp(y / screen.Y, edge, 1 - edge)
-		local target = sidePosition(side, yScale)
-		-- Convert the target to the same kind of position first so the tween is smooth.
-		local tx = target.X.Scale * screen.X + target.X.Offset
-		tween(button, { Position = UDim2.fromOffset(tx, yScale * screen.Y) }, 0.45, Enum.EasingStyle.Back)
-		task.delay(0.46, function()
-			button.Position = target
-		end)
-		self.State.Button = { Side = side, Y = yScale }
+		local half = button.AbsoluteSize / 2
+		local x = math.clamp(p.X.Scale * screen.X + p.X.Offset, half.X + 4, math.max(half.X + 4, screen.X - half.X - 4))
+		local y = math.clamp(p.Y.Scale * screen.Y + p.Y.Offset, half.Y + 4, math.max(half.Y + 4, screen.Y - half.Y - 4))
+		button.Position = UDim2.fromScale(x / screen.X, y / screen.Y)
+		self.State.Button = { X = x / screen.X, Y = y / screen.Y }
 		queueSave()
 	end
-	dragWithPosition(button, button, snap, function()
+	dragWithPosition(button, button, settle, function()
 		self:Toggle()
 	end)
 	if not self.Mobile then
@@ -4808,6 +4949,7 @@ function Window:Watermark(customText)
 		AutomaticSize = Enum.AutomaticSize.X,
 		BackgroundColor3 = "Section",
 		BackgroundTransparency = 0.06,
+		Active = true,
 		Parent = self.ButtonGui,
 	})
 	corner(11, bar)
@@ -4875,6 +5017,7 @@ function Window:KeybindList(show)
 			BackgroundColor3 = "Section",
 			BackgroundTransparency = 0.06,
 			Visible = false,
+			Active = true,
 			Parent = self.ButtonGui,
 		})
 		corner(12, frame)
@@ -11503,6 +11646,16 @@ function Window:BuildSettings(opts)
 			end
 		end,
 	}))
+	-- Keep the preset list and colour pickers in step when a script calls SetTheme.
+	connect(Library.ThemeChanged, function()
+		local name = Settings.Theme
+		if presetDropdown.Value ~= name and table.find(presetOptions, name) then
+			presetDropdown:Set(name, true)
+			if name ~= "Custom" then
+				syncPickers()
+			end
+		end
+	end)
 	noSave(theme:Toggle({ Setting = "Gradient", Name = "Gradient accents", Description = "Blend Accent into Accent 2", Default = Settings.Gradient, Callback = function(on)
 		Library:SetSetting("Gradient", on)
 	end }))
@@ -11589,6 +11742,9 @@ function Window:BuildSettings(opts)
 	end }))
 	noSave(motion:Toggle({ Setting = "SmoothDrag", Name = "Smooth dragging", Default = Settings.SmoothDrag, Callback = function(on)
 		Library:SetSetting("SmoothDrag", on)
+	end }))
+	noSave(motion:Toggle({ Setting = "Snow", Name = "Snowfall", Tooltip = "Gentle snow behind the menu while the Christmas theme is on", Default = Settings.Snow, Callback = function(on)
+		Library:SetSetting("Snow", on)
 	end }))
 	noSave(motion:Toggle({ Setting = "Fizz", Name = "Background bubbles", Default = Settings.Fizz, Callback = function(on)
 		Library:SetSetting("Fizz", on)
