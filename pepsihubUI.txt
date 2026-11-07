@@ -5,7 +5,7 @@
 	-------------------------------------------------------------------------
 	Quick start
 	-------------------------------------------------------------------------
-	local UI = loadstring(game:HttpGet("<your Pepsi UI link>"))()
+	local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/PepsiUI_Demo.txt%20(1)"))()
 
 	local Window = UI:CreateWindow({
 		Title = "Pepsi Hub",          -- big name in the sidebar
