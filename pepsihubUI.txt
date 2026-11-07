@@ -6315,7 +6315,8 @@ function Window:SelectTab(tab, pageIndex)
 		tween(self.PageDesc, { TextTransparency = 0 }, 0.4)
 	end
 	if #tab.Pages == 0 then
-		newPage(self, tab, tab.Name)
+		-- Placeholder page; the first SubTab added later takes it over.
+		newPage(self, tab, tab.Name).Auto = true
 	end
 	-- Sub page pills.
 	for _, c in ipairs(self.SubPills:GetChildren()) do
@@ -6428,7 +6429,16 @@ function Tab:SubTab(opts)
 	end
 	opts = opts or {}
 	local tab = rawget(self, "Tab") or self
-	local page = newPage(tab.Window, tab, opts.Name or opts.Title or ("Page " .. (#tab.Pages + 1)))
+	local name = opts.Name or opts.Title or ("Page " .. (#tab.Pages + 1))
+	local page
+	local first = tab.Pages[1]
+	if #tab.Pages == 1 and first.Auto and #first.Sections == 0 then
+		first.Auto = nil
+		first.Name = tostring(name)
+		page = first
+	else
+		page = newPage(tab.Window, tab, name)
+	end
 	page.Icon = opts.Icon
 	local sub = setmetatable({ Page = page, Window = tab.Window, Tab = tab, Kind = "Page", Name = page.Name }, Tab)
 	if tab.Window.CurrentTab == tab then
@@ -11950,9 +11960,11 @@ function Library:OnUnload(fn)
 end
 
 function Library:Unload()
-	if self.Unloaded then
+	-- A cleanup hook that calls Unload again (common in scripts) must not loop.
+	if self.Unloaded or self.UnloadRunning then
 		return
 	end
+	self.UnloadRunning = true
 	self.Unloading:Fire()
 	-- Your cleanup runs first, while everything still exists.
 	for _, fn in ipairs(self.UnloadHooks) do
