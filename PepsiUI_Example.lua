@@ -3,7 +3,7 @@
 	Loads the library from your GitHub. Build your own tabs the same way.
 ]]
 
-local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/main/pepsihubUI.txt"))()
+local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Esmam3/67/refs/heads/pepsi-ui/PepsiUI.lua"))()
 
 local Window = UI:CreateWindow({
 	Title = "Pepsi Hub",
