@@ -134,24 +134,24 @@ local Settings = {
 	Navigation = "Sidebar",
 	ToggleStyle = "Switch",
 	Onboarded = false,
-	Roundness = 1,
-	Transparency = 0.35,
+	Roundness = 0.6,
+	Transparency = 0.04,
 	Gradient = false,
 	Animations = true,
 	AnimSpeed = 1,
 	SmoothDrag = true,
 	OpenAnimation = "Genie",
-	Sounds = true,
+	Sounds = false,
 	Volume = 0.6,
-	HoverSounds = not Library.Mobile,
+	HoverSounds = false,
 	SoundPack = "Pepsi",
 	Notifications = true,
 	NotifyStyle = Library.Mobile and "Island" or "Stack",
 	NotifyPosition = "Bottom right",
 	NotifyDuration = 1,
 	Tooltips = true,
-	Fizz = true,
-	CursorGlow = true,
+	Fizz = false,
+	CursorGlow = false,
 	Blur = false,
 	MenuScale = 1,
 	ShowButton = true,
@@ -332,18 +332,18 @@ Library.ThemeSlots = ThemeSlots
 
 local DefaultTheme = {
 	-- One clean Pepsi blue. Turn on "Gradient accents" in Settings to blend in Accent 2.
-	AccentA = rgb(38, 110, 255),
-	AccentB = rgb(0, 174, 255),
-	Background = rgb(11, 11, 14),
-	Sidebar = rgb(15, 15, 19),
-	Section = rgb(19, 19, 24),
-	Element = rgb(31, 31, 38),
-	ElementHover = rgb(40, 40, 49),
-	Field = rgb(14, 14, 18),
+	AccentA = rgb(86, 134, 240),
+	AccentB = rgb(86, 134, 240),
+	Background = rgb(13, 13, 14),
+	Sidebar = rgb(16, 16, 17),
+	Section = rgb(19, 19, 21),
+	Element = rgb(29, 29, 32),
+	ElementHover = rgb(36, 36, 40),
+	Field = rgb(15, 15, 16),
 	Stroke = rgb(255, 255, 255),
-	Text = rgb(242, 242, 246),
-	SubText = rgb(150, 151, 164),
-	Dim = rgb(94, 95, 108),
+	Text = rgb(236, 236, 238),
+	SubText = rgb(146, 146, 152),
+	Dim = rgb(92, 92, 98),
 	Success = rgb(62, 214, 128),
 	Warning = rgb(255, 184, 64),
 	Error = rgb(255, 76, 76),
@@ -1716,7 +1716,7 @@ local SETTINGS_PATH = Library.Folder .. "/settings.json"
 Library.WindowState = {}
 
 function Library:SaveSettings()
-	local data = { Settings = {}, ThemeColors = {}, Window = Library.WindowState, Version = Library.Version, Schema = 2 }
+	local data = { Settings = {}, ThemeColors = {}, Window = Library.WindowState, Version = Library.Version, Schema = 3 }
 	for k, v in pairs(Settings) do
 		local t = type(v)
 		if t == "string" or t == "number" or t == "boolean" then
@@ -1767,7 +1767,7 @@ function Library:LoadSettings()
 	self.SettingsLoaded = true
 	local data = readJSON(SETTINGS_PATH)
 	-- Settings saved by older versions are skipped so everyone starts on the new look.
-	if not data or (tonumber(data.Schema) or 1) < 2 then
+	if not data or (tonumber(data.Schema) or 1) < 3 then
 		return
 	end
 	if type(data.Settings) == "table" then
@@ -3295,7 +3295,7 @@ function Library:CreateWindow(opts)
 	self.Scale = create("UIScale", { Scale = 1, Parent = holder })
 	self.Shadows = {}
 	-- Soft shadow: many faint layers, a bit lower than the window.
-	local SHADOW = { { 48, 0.975 }, { 34, 0.965 }, { 22, 0.95 }, { 12, 0.93 }, { 4, 0.9 } }
+	local SHADOW = { { 24, 0.94 }, { 10, 0.9 } }
 	self.ShadowSpec = SHADOW
 	for i, layer in ipairs(SHADOW) do
 		local shadow = create("Frame", {
@@ -3326,11 +3326,7 @@ function Library:CreateWindow(opts)
 	-- Background: two soft accent glows, rising bubbles and a glow that follows the mouse.
 	local decor = create("Frame", { Name = "Decor", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = main })
 	self.Decor = decor
-	local glowA = glowBlob(decor, 440, "AccentA", 0.026, 12)
-	glowA.Position = UDim2.new(1, -40, 0, -30)
-	local glowB = glowBlob(decor, 400, "AccentB", 0.024, 12)
-	glowB.Position = UDim2.new(0, 60, 1, 40)
-	self.Glows = { glowA, glowB }
+	self.Glows = {}
 	self:BuildFizz()
 	if not mobile then
 		self:BuildCursorGlow()
@@ -3362,7 +3358,9 @@ function Library:CreateWindow(opts)
 		ZIndex = 2,
 		Parent = main,
 	})
-	glass(sidebar, 0.3)
+	-- No fill of its own: a square panel would poke out of the window's rounded corners.
+	sidebar.BackgroundTransparency = 1
+	unbind(sidebar, "BackgroundColor3")
 	self.Sidebar = sidebar
 	create("Frame", {
 		Name = "Line",
@@ -3783,6 +3781,7 @@ function Library:CreateWindow(opts)
 		ZIndex = 50,
 		Parent = main,
 	})
+	corner(16, modal) -- the dim layer follows the window's rounded corners
 	self.Modal = modal
 	modal.Activated:Connect(function()
 		if self.ModalDismiss then
@@ -6556,10 +6555,9 @@ function Tab:Section(opts)
 		unbind(frame, "BackgroundColor3")
 	else
 		-- Glass card: see-through, with an edge that is brighter at the top.
-		glass(frame, 0.32)
+		glass(frame, 0)
 		corner(12, frame)
-		frameStroke = stroke(frame, 0.84)
-		create("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.35, 0.45), NumberSequenceKeypoint.new(1, 0.7) }), Parent = frameStroke })
+		frameStroke = stroke(frame, 0.93)
 		padding(frame, 12, 12, 12, 12)
 	end
 	list(frame, 6)
@@ -8687,7 +8685,7 @@ function Section:Dropdown(opts)
 	local e = newElement(self, "Dropdown", opts)
 	local mobile = self.Window.Mobile
 	local base = e.TopHeight
-	local rowH = mobile and 36 or 30
+	local rowH = mobile and 36 or 28
 	local maxRows = opts.MaxVisible or (mobile and 5 or 6)
 	e.Multi = opts.Multi == true or opts.MultiSelect == true
 	e.Options = {}
@@ -8744,12 +8742,12 @@ function Section:Dropdown(opts)
 		Position = UDim2.new(1, -8, 0, base / 2),
 		Size = UDim2.new(0.5, -14, 0, fieldH),
 		BackgroundColor3 = "Field",
-		BackgroundTransparency = 0.25,
+		BackgroundTransparency = 0,
 		ZIndex = 3,
 		Parent = e.Frame,
 	})
-	corner(8, field)
-	local fieldStroke = stroke(field, 0.9)
+	corner(6, field)
+	local fieldStroke = stroke(field, 0.92)
 	local valueLabel = text({
 		Parent = field,
 		Name = "Value",
@@ -8909,7 +8907,7 @@ function Section:Dropdown(opts)
 		for v, b in pairs(buttons) do
 			local on = isSelected(v)
 			local info = rows[v]
-			paint(b, { BackgroundTransparency = on and 0.15 or 1 }, smooth, 0.15)
+			paint(b, { BackgroundTransparency = on and 0.55 or 1 }, smooth, 0.15)
 			paint(info.Label, { TextColor3 = on and Theme.Text or Theme.SubText }, smooth, 0.15)
 			if info.CheckScale then
 				if smooth then
@@ -8936,7 +8934,7 @@ function Section:Dropdown(opts)
 		end
 		open = state
 		e:SetActive(open)
-		paint(fieldStroke, { Color = open and Theme.AccentA or Theme.Stroke, Transparency = open and 0.55 or 0.9 }, true, 0.2)
+		paint(fieldStroke, { Transparency = open and 0.85 or 0.92 }, true, 0.15)
 		if open then
 			sfx("Pop")
 			search.Text = ""
@@ -9011,7 +9009,7 @@ function Section:Dropdown(opts)
 				ZIndex = 6,
 				Parent = optionList,
 			})
-			corner(7, b)
+			corner(5, b)
 			local pad = 10
 			if e.Multi then
 				local box = create("Frame", { Name = "Box", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(16, 16), BackgroundColor3 = "Field", ZIndex = 7, Parent = b })
@@ -9040,7 +9038,7 @@ function Section:Dropdown(opts)
 				text({ Parent = b, Text = tostring(data.Description), Size = 11, Color = "Dim", Pos = UDim2.new(0, pad, 0.5, 0), Sz = UDim2.new(1, -pad - 30, 0, rowH * 0.45), Truncate = true, Z = 7 })
 			end
 			if not e.Multi then
-				local check = icon(b, "check", 14, "AccentA", { Name = "Check", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), ZIndex = 7 })
+				local check = icon(b, "check", 13, "Text", { Name = "Check", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), ZIndex = 7 })
 				info.CheckScale = create("UIScale", { Scale = 0, Parent = check })
 			end
 			info.Label = label
