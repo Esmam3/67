@@ -1,5 +1,5 @@
 --[[
-	Pepsi UI v2.1 - starter script
+	Pepsi UI v2.2 - starter script
 	Loads the library from your GitHub. Build your own tabs the same way.
 ]]
 
