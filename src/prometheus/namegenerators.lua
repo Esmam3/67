@@ -12,4 +12,5 @@ return {
 	Confuse = require("prometheus.namegenerators.confuse");
 	Hex = require("prometheus.namegenerators.hex");
 	Chinese = require("prometheus.namegenerators.chinese");
+	Homoglyph = require("prometheus.namegenerators.unicode_homoglyph");
 }

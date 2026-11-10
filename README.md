@@ -98,7 +98,7 @@ lua cli.lua --preset Medium ./your_file.lua
 
 ## Obfuscation Steps
 
-Prometheus includes **25 obfuscation steps** that can be combined in any order:
+Prometheus includes **28 obfuscation steps** that can be combined in any order:
 
 | Step | Description | Performance Impact |
 |------|-------------|-------------------|
@@ -118,6 +118,16 @@ Prometheus includes **25 obfuscation steps** that can be combined in any order:
 | **MultiLayerEncryption** | Encrypts strings through multiple algorithm layers (XOR, Caesar, substitution, CBC) | Low-Medium |
 | **ConstantUnfolding** | Replaces numeric/boolean constants with runtime-computed expressions | Low |
 | **CallIndirection** | Redirects global calls through an encrypted dispatch table | Low |
+| **BogusControlFlow** | Inserts fake control-flow paths with interconnected opaque predicates | Low-Medium |
+| **EnvironmentChecks** | Runtime anti-debugging, timing analysis detection, and stdlib integrity checks | Low |
+| **SelfChecksum** | Runtime self-integrity verification using sentinel values and function structure | Low |
+| **BytecodeEncryption** | Encrypts bytecode segments with runtime decryption | Medium |
+| **DummyCode** | Inserts realistic dummy functions and variables | Low |
+| **OpcodeSubstitution** | Replaces standard operations with equivalent complex expressions | Low |
+| **StringMorph** | Morphs string operations through encoding transformations | Low |
+| **MBAObfuscation** | Replaces arithmetic with mixed boolean-arithmetic expressions | Low |
+| **DynamicCodeGeneration** | Wraps code in dynamically constructed and loaded string chunks | Medium |
+| **TableIndirection** | Redirects variable access through indirection tables | Low-Medium |
 | **Watermark** | Embeds a hidden watermark in the code | Negligible |
 | **WatermarkCheck** | Adds runtime watermark verification | Low |
 
@@ -128,9 +138,9 @@ Prometheus includes **25 obfuscation steps** that can be combined in any order:
 | **Minify** | None (rename only) | Smallest output, no obfuscation |
 | **Weak** | CFF + ConstantArray + OpaquePredicates + WrapInFunction | Light protection, low overhead |
 | **Medium** | VM + Encryption + AntiTamper + CFF + Numbers + DeadCode + Opaques | Balanced protection |
-| **High** | VM + Encryption + AntiTamper + Opaques + DeadCode + CallIndirection + CFF + ConstantUnfolding + Numbers + StringToBytes | Strong protection, moderate overhead |
-| **Strong** | VM + MultiLayerEncryption + AntiTamper + Opaques + DeadCode + CallIndirection + CFF + ConstantUnfolding + Numbers + StringToBytes + WrapInFunction | Heavy protection |
-| **Maximum** | All steps at max settings | Maximum protection, highest overhead |
+| **High** | VM + Encryption + AntiTamper + Opaques + DeadCode + CallIndirection + CFF + ConstantUnfolding + Numbers + StringToBytes + BogusControlFlow + EnvironmentChecks + OpcodeSubstitution + DummyCode + StringMorph | Strong protection, moderate overhead |
+| **Strong** | VM + MultiLayerEncryption + AntiTamper + Opaques + DeadCode + CallIndirection + CFF + ConstantUnfolding + Numbers + StringToBytes + BogusControlFlow + EnvironmentChecks + SelfChecksum + OpcodeSubstitution + MBA + DummyCode + BytecodeEncryption + StringMorph + TableIndirection | Heavy protection |
+| **Maximum** | All 28 steps at max settings including DynamicCodeGeneration, MBA, OpcodeSubstitution, TableIndirection | Maximum protection, highest overhead |
 
 ## Name Generators
 
@@ -143,6 +153,7 @@ Prometheus includes **25 obfuscation steps** that can be combined in any order:
 | **Confuse** | Real-looking names | `index_factory`, `loader_parse` |
 | **Hex** | Memory address style | `_0x4f2a`, `loc_89dc` |
 | **Chinese** | CJK Unicode characters (LuaU) | `万丁三`, `上下不` |
+| **Homoglyph** | Unicode lookalikes of Latin letters (LuaU) | `аbс`, `ΑΒΓ` |
 
 ---
 

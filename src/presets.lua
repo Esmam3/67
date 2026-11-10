@@ -193,6 +193,28 @@ return {
 					FailMode = "crash",
 				},
 			},
+			{
+				Name = "Opcode Substitution",
+				Settings = {
+					Threshold = 0.4,
+					IndirectionDepth = 1,
+				},
+			},
+			{
+				Name = "Dummy Code",
+				Settings = {
+					Threshold = 0.3,
+					FunctionCount = 3,
+				},
+			},
+			{
+				Name = "String Morph",
+				Settings = {
+					Threshold = 0.3,
+					FragmentSize = 4,
+					TableCount = 3,
+				},
+			},
 		},
 	},
 
@@ -287,6 +309,49 @@ return {
 				Settings = {
 					CheckCount = 2,
 					FailMode = "crash",
+				},
+			},
+			{
+				Name = "Opcode Substitution",
+				Settings = {
+					Threshold = 0.6,
+					IndirectionDepth = 2,
+				},
+			},
+			{
+				Name = "MBA Obfuscation",
+				Settings = {
+					Threshold = 0.5,
+					MaxDepth = 2,
+				},
+			},
+			{
+				Name = "Dummy Code",
+				Settings = {
+					Threshold = 0.5,
+					FunctionCount = 5,
+				},
+			},
+			{
+				Name = "Bytecode Encryption",
+				Settings = {
+					Threshold = 0.4,
+					KeyComplexity = 3,
+				},
+			},
+			{
+				Name = "String Morph",
+				Settings = {
+					Threshold = 0.5,
+					FragmentSize = 3,
+					TableCount = 4,
+				},
+			},
+			{
+				Name = "Table Indirection",
+				Settings = {
+					Threshold = 0.6,
+					ChainDepth = 2,
 				},
 			},
 		},
@@ -395,6 +460,56 @@ return {
 				Settings = {
 					CheckCount = 5,
 					FailMode = "corrupt",
+				},
+			},
+			{
+				Name = "Opcode Substitution",
+				Settings = {
+					Threshold = 0.9,
+					IndirectionDepth = 3,
+				},
+			},
+			{
+				Name = "MBA Obfuscation",
+				Settings = {
+					Threshold = 0.8,
+					MaxDepth = 3,
+				},
+			},
+			{
+				Name = "Dummy Code",
+				Settings = {
+					Threshold = 0.8,
+					FunctionCount = 8,
+				},
+			},
+			{
+				Name = "Bytecode Encryption",
+				Settings = {
+					Threshold = 0.7,
+					KeyComplexity = 5,
+				},
+			},
+			{
+				Name = "String Morph",
+				Settings = {
+					Threshold = 0.8,
+					FragmentSize = 2,
+					TableCount = 6,
+				},
+			},
+			{
+				Name = "Table Indirection",
+				Settings = {
+					Threshold = 0.9,
+					ChainDepth = 3,
+				},
+			},
+			{
+				Name = "Dynamic Code Generation",
+				Settings = {
+					Threshold = 0.6,
+					MaxDepth = 2,
 				},
 			},
 			{ Name = "AddVararg", Settings = {} },
