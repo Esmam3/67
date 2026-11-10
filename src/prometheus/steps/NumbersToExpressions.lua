@@ -6,7 +6,7 @@
 -- This step can now also convert numbers to different representations!
 -- Supported representations: hex, binary, scientific, normal. Please note that binary is only supported in Lua 5.2 and above.
 
-unpack = unpack or table.unpack
+local unpack = unpack or table.unpack
 
 local Step = require("prometheus.step")
 local Ast = require("prometheus.ast")

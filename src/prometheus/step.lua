@@ -41,7 +41,7 @@ function Step:new(settings)
 		elseif(data.type == "enum") then
 			local lookup = lookupify(data.values);
 			if not lookup[settingValue] then
-				logger:error(string.format("Invalid value for the Setting \"%s\" of the Step \"%s\". It must be one of the following: %s", key, self.Name, table.concat(data, ", ")));
+				logger:error(string.format("Invalid value for the Setting \"%s\" of the Step \"%s\". It must be one of the following: %s", key, self.Name, table.concat(data.values, ", ")));
 			end
 			instance[key] = settingValue;
 		elseif(type(settingValue) ~= data.type) then
