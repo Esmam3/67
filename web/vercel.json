@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "node scripts/gen-lua-sources.mjs && vite build",
+  "buildCommand": "node scripts/gen-lua-sources.mjs && vite build --base=/",
   "outputDirectory": "dist",
   "functions": {
     "api/obfuscate.ts": {

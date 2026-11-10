@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { CodeEditor } from "@/components/CodeEditor"
+import InstallButton from "@/InstallButton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -530,6 +531,7 @@ export default function App() {
               >
                 Upload
               </a>
+              <InstallButton />
               <Button onClick={isObfuscating ? stopCurrentJob : () => void obfuscate()} disabled={isBusy && !isObfuscating} className="min-w-32">
                 {isObfuscating ? <Loader2 className="animate-spin" /> : <Play />}
                 {isObfuscating ? "Stop" : "Obfuscate"}

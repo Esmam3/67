@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react"
 
+import InstallButton from "@/InstallButton"
 import { LUA_VERSIONS, PRESETS, type LuaVersion, type PresetName } from "@/lib/prometheusTypes"
 
 type Status =
@@ -88,12 +89,15 @@ export default function ScriptUploadPage() {
             Drop a Lua script. It is sent to the server and obfuscated automatically.
           </p>
         </div>
-        <a
-          href="#/"
-          className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground"
-        >
-          Playground
-        </a>
+        <div className="flex items-center gap-2">
+          <InstallButton />
+          <a
+            href="#/"
+            className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground"
+          >
+            Playground
+          </a>
+        </div>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">

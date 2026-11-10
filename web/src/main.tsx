@@ -24,3 +24,13 @@ createRoot(document.getElementById("root")!).render(
     <Router />
   </StrictMode>,
 )
+
+// Register the service worker so the app is installable and works offline.
+// Only in production builds served over http(s) (not during `file://` or dev).
+if ("serviceWorker" in navigator && import.meta.env.PROD && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Offline support is a progressive enhancement; ignore registration errors.
+    })
+  })
+}
