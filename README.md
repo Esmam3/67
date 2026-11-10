@@ -98,7 +98,7 @@ lua cli.lua --preset Medium ./your_file.lua
 
 ## Obfuscation Steps
 
-Prometheus includes **15 obfuscation steps** that can be combined in any order:
+Prometheus includes **25 obfuscation steps** that can be combined in any order:
 
 | Step | Description | Performance Impact |
 |------|-------------|-------------------|
@@ -115,6 +115,9 @@ Prometheus includes **15 obfuscation steps** that can be combined in any order:
 | **AntiTamper** | Adds runtime integrity checks that break the script if modified | Low |
 | **WrapInFunction** | Wraps the entire script in nested function calls | Low |
 | **AddVararg** | Adds vararg to all function signatures | Negligible |
+| **MultiLayerEncryption** | Encrypts strings through multiple algorithm layers (XOR, Caesar, substitution, CBC) | Low-Medium |
+| **ConstantUnfolding** | Replaces numeric/boolean constants with runtime-computed expressions | Low |
+| **CallIndirection** | Redirects global calls through an encrypted dispatch table | Low |
 | **Watermark** | Embeds a hidden watermark in the code | Negligible |
 | **WatermarkCheck** | Adds runtime watermark verification | Low |
 
@@ -125,8 +128,8 @@ Prometheus includes **15 obfuscation steps** that can be combined in any order:
 | **Minify** | None (rename only) | Smallest output, no obfuscation |
 | **Weak** | CFF + ConstantArray + OpaquePredicates + WrapInFunction | Light protection, low overhead |
 | **Medium** | VM + Encryption + AntiTamper + CFF + Numbers + DeadCode + Opaques | Balanced protection |
-| **High** | VM + Encryption + AntiTamper + Opaques + DeadCode + CFF + Numbers + StringToBytes | Strong protection, moderate overhead |
-| **Strong** | VM + Encryption + AntiTamper + CFF + Opaques + DeadCode + Numbers + StringToBytes + WrapInFunction | Heavy protection |
+| **High** | VM + Encryption + AntiTamper + Opaques + DeadCode + CallIndirection + CFF + ConstantUnfolding + Numbers + StringToBytes | Strong protection, moderate overhead |
+| **Strong** | VM + MultiLayerEncryption + AntiTamper + Opaques + DeadCode + CallIndirection + CFF + ConstantUnfolding + Numbers + StringToBytes + WrapInFunction | Heavy protection |
 | **Maximum** | All steps at max settings | Maximum protection, highest overhead |
 
 ## Name Generators

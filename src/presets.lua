@@ -114,7 +114,8 @@ return {
 	},
 
 	-- High obfuscation. Strong protection with manageable performance cost.
-	-- Adds string-to-bytes conversion and deeper opaque predicates / dead code on top of Medium.
+	-- Adds string-to-bytes conversion, constant unfolding, call indirection,
+	-- and deeper opaque predicates / dead code on top of Medium.
 	["High"] = {
 		LuaVersion = "Lua51",
 		VarNamePrefix = "",
@@ -154,8 +155,16 @@ return {
 					LocalWrapperThreshold = 0,
 				},
 			},
+			{ Name = "CallIndirection", Settings = {} },
 			{ Name = "WrapInFunction", Settings = {} },
 			{ Name = "Cff", Settings = { ExcludeVm = true } },
+			{
+				Name = "ConstantUnfolding",
+				Settings = {
+					Threshold = 0.5,
+					MaxDepth = 2,
+				},
+			},
 			{
 				Name = "NumbersToExpressions",
 				Settings = {
@@ -168,11 +177,28 @@ return {
 					Threshold = 0.3,
 				},
 			},
+			{
+				Name = "Bogus Control Flow",
+				Settings = {
+					Threshold = 0.3,
+					Complexity = 2,
+				},
+			},
+			{
+				Name = "Environment Checks",
+				Settings = {
+					CheckDebugLibrary = true,
+					CheckTiming = false,
+					CheckEnvironment = true,
+					FailMode = "crash",
+				},
+			},
 		},
 	},
 
 	-- Strong obfuscation, high performance loss.
-	-- Full CFF (including VM), opaque predicates, dead code, and string-to-bytes.
+	-- Full CFF (including VM), multi-layer encryption, constant unfolding,
+	-- call indirection, opaque predicates, dead code, and string-to-bytes.
 	["Strong"] = {
 		LuaVersion = "Lua51",
 		VarNamePrefix = "",
@@ -181,7 +207,13 @@ return {
 		Seed = 0,
 		Steps = {
 			{ Name = "Vmify", Settings = {} },
-			{ Name = "EncryptStrings", Settings = {} },
+			{
+				Name = "MultiLayerEncryption",
+				Settings = {
+					Layers = 3,
+					Threshold = 0.8,
+				},
+			},
 			{
 				Name = "AntiTamper",
 				Settings = {
@@ -202,6 +234,7 @@ return {
 					Intensity = 4,
 				},
 			},
+			{ Name = "CallIndirection", Settings = {} },
 			{ Name = "Cff", Settings = {} },
 			{
 				Name = "ConstantArray",
@@ -211,6 +244,13 @@ return {
 					Shuffle = true,
 					Rotate = true,
 					LocalWrapperThreshold = 0,
+				},
+			},
+			{
+				Name = "ConstantUnfolding",
+				Settings = {
+					Threshold = 0.7,
+					MaxDepth = 3,
 				},
 			},
 			{
@@ -224,6 +264,29 @@ return {
 				Name = "StringToBytes",
 				Settings = {
 					Threshold = 0.5,
+				},
+			},
+			{
+				Name = "Bogus Control Flow",
+				Settings = {
+					Threshold = 0.5,
+					Complexity = 3,
+				},
+			},
+			{
+				Name = "Environment Checks",
+				Settings = {
+					CheckDebugLibrary = true,
+					CheckTiming = true,
+					CheckEnvironment = true,
+					FailMode = "corrupt",
+				},
+			},
+			{
+				Name = "Self Checksum",
+				Settings = {
+					CheckCount = 2,
+					FailMode = "crash",
 				},
 			},
 		},
@@ -241,6 +304,13 @@ return {
 		Steps = {
 			{ Name = "Vmify", Settings = {} },
 			{ Name = "EncryptStrings", Settings = { HoistVmStrings = true } },
+			{
+				Name = "MultiLayerEncryption",
+				Settings = {
+					Layers = 5,
+					Threshold = 1,
+				},
+			},
 			{
 				Name = "AntiTamper",
 				Settings = {
@@ -261,6 +331,7 @@ return {
 					Intensity = 5,
 				},
 			},
+			{ Name = "CallIndirection", Settings = {} },
 			{ Name = "ProxifyLocals", Settings = {} },
 			{
 				Name = "SplitStrings",
@@ -285,6 +356,13 @@ return {
 			},
 			{ Name = "Cff", Settings = {} },
 			{
+				Name = "ConstantUnfolding",
+				Settings = {
+					Threshold = 1.0,
+					MaxDepth = 4,
+				},
+			},
+			{
 				Name = "NumbersToExpressions",
 				Settings = {
 					NumberRepresentationMutation = true,
@@ -294,6 +372,29 @@ return {
 				Name = "StringToBytes",
 				Settings = {
 					Threshold = 0.8,
+				},
+			},
+			{
+				Name = "Bogus Control Flow",
+				Settings = {
+					Threshold = 0.8,
+					Complexity = 5,
+				},
+			},
+			{
+				Name = "Environment Checks",
+				Settings = {
+					CheckDebugLibrary = true,
+					CheckTiming = true,
+					CheckEnvironment = true,
+					FailMode = "corrupt",
+				},
+			},
+			{
+				Name = "Self Checksum",
+				Settings = {
+					CheckCount = 5,
+					FailMode = "corrupt",
 				},
 			},
 			{ Name = "AddVararg", Settings = {} },
