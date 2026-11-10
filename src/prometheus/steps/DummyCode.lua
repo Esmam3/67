@@ -96,7 +96,7 @@ local function buildDummyFunctionBody(funcSymbols, selfIndex, interconnectionLev
 			-- Accumulate the result
 			ifBodyStmts[#ifBodyStmts + 1] = Source.fill(
 				Ast.AssignmentStatement(
-					{Ast.VariableExpression(accSym)},
+					{Ast.AssignmentVariable(accSym)},
 					{Ast.AddExpression(
 						Ast.VariableExpression(accSym),
 						Ast.VariableExpression(resultSym),
@@ -110,7 +110,7 @@ local function buildDummyFunctionBody(funcSymbols, selfIndex, interconnectionLev
 	if #ifBodyStmts == 0 then
 		ifBodyStmts[#ifBodyStmts + 1] = Source.fill(
 			Ast.AssignmentStatement(
-				{Ast.VariableExpression(accSym)},
+				{Ast.AssignmentVariable(accSym)},
 				{Ast.MulExpression(
 					Ast.VariableExpression(accSym),
 					Ast.NumberExpression(math.random(2, 5)),
@@ -123,7 +123,7 @@ local function buildDummyFunctionBody(funcSymbols, selfIndex, interconnectionLev
 	local elseStmts = {}
 	elseStmts[#elseStmts + 1] = Source.fill(
 		Ast.AssignmentStatement(
-			{Ast.VariableExpression(accSym)},
+			{Ast.AssignmentVariable(accSym)},
 			{Ast.SubExpression(
 				Ast.VariableExpression(accSym),
 				Ast.NumberExpression(math.random(1, 500)),
@@ -136,7 +136,7 @@ local function buildDummyFunctionBody(funcSymbols, selfIndex, interconnectionLev
 	local loopBody = Ast.Block({
 		Source.fill(
 			Ast.AssignmentStatement(
-				{Ast.VariableExpression(accSym)},
+				{Ast.AssignmentVariable(accSym)},
 				{Ast.AddExpression(
 					Ast.VariableExpression(accSym),
 					Ast.VariableExpression(loopVar),
@@ -251,7 +251,7 @@ function DummyCode:apply(ast, pipeline)
 			generatedSpan)
 		funcDecls[#funcDecls + 1] = Source.fill(
 			Ast.AssignmentStatement(
-				{Ast.VariableExpression(funcSymbols[i])},
+				{Ast.AssignmentVariable(funcSymbols[i])},
 				{funcExpr}
 			), generatedSpan)
 	end
@@ -271,8 +271,13 @@ function DummyCode:apply(ast, pipeline)
 			local newStatements = {}
 			for _, stmt in ipairs(node.statements) do
 				newStatements[#newStatements + 1] = stmt
-				-- Inject dead call after some statements
-				if math.random() < threshold then
+				-- Inject dead call after some statements, but never after a
+				-- terminator: `return`/`break` must be the last statement in a
+				-- Lua block, so anything following them is a syntax error.
+				local isTerminator = stmt.kind == AstKind.ReturnStatement
+					or stmt.kind == AstKind.BreakStatement
+					or stmt.kind == AstKind.ContinueStatement
+				if not isTerminator and math.random() < threshold then
 					local targetIdx = math.random(1, funcCount)
 					local callExpr = Ast.FunctionCallExpression(
 						Ast.VariableExpression(funcSymbols[targetIdx]),

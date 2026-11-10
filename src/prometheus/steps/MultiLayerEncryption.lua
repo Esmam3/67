@@ -195,7 +195,7 @@ function MultiLayerEncryption:apply(ast, _)
     end
 
     -- Runtime bxor (Lua 5.1 compatible)
-    local runtimeCode = [[
+    local runtimeCode = [==[
 do
     local floor = math.floor
     local byte = string.byte
@@ -282,7 +282,7 @@ do
 
     local decoders = { dec_xor_rolling, dec_caesar, dec_reverse_xor, dec_substitution, dec_cbc }
 
-    local META = {]] .. table.concat(metaParts, ",") .. [[}
+    local META = {]==] .. table.concat(metaParts, ",") .. [==[}
     local cache = {}
 
     function MLE_DECRYPT(idx)
@@ -302,7 +302,7 @@ do
         cache[idx] = table.concat(parts)
         return cache[idx]
     end
-end]]
+end]==]
 
     local generatedSpan = Source.generated("MultiLayerEncryption")
     local newAst = Parser:new({ LuaVersion = Enums.LuaVersion.Lua51 })

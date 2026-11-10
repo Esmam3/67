@@ -39,10 +39,14 @@ OpaquePredicates.SettingsDescriptor = {
 function OpaquePredicates:init(_) end
 
 -- Statements that are structural and should never be wrapped.
+-- LocalVariableDeclaration must be skipped: wrapping it in an if-block would
+-- re-scope the declared locals into that block, making them invisible to
+-- subsequent sibling statements ("Local binding is not accessible").
 local skipKinds = {
 	[AstKind.ReturnStatement] = true,
 	[AstKind.BreakStatement] = true,
 	[AstKind.ContinueStatement] = true,
+	[AstKind.LocalVariableDeclaration] = true,
 	[AstKind.IfStatement] = true,
 	[AstKind.WhileStatement] = true,
 	[AstKind.RepeatStatement] = true,

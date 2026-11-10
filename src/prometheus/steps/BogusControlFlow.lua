@@ -39,10 +39,16 @@ BogusControlFlow.SettingsDescriptor = {
 
 function BogusControlFlow:init(_) end
 
+-- Statements that must NOT be folded into a wrapped bogus branch.
+-- Return/Break/Continue are block terminators. Local declarations must stay at
+-- the parent scope: moving them into a nested if-block would hide the declared
+-- locals from later sibling statements ("Local binding is not accessible").
 local skipKinds = {
 	[AstKind.ReturnStatement] = true,
 	[AstKind.BreakStatement] = true,
 	[AstKind.ContinueStatement] = true,
+	[AstKind.LocalVariableDeclaration] = true,
+	[AstKind.LocalFunctionDeclaration] = true,
 }
 
 local function makeOpaqueTrue(sym, span)

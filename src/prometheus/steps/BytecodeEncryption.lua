@@ -188,9 +188,11 @@ function BytecodeEncryption:apply(ast, pipeline)
     )
 
     -- Insert runtime infrastructure
+    -- payloadTableVar is declared with its value in payloadDecl, so it must NOT
+    -- also appear in this forward declaration (that would double-declare it).
     table.insert(ast.body.statements, 1, doStat)
     table.insert(ast.body.statements, 1, Source.fill(
-        Ast.LocalVariableDeclaration(util.shuffle({ decryptVar, loadVar, payloadTableVar }), {}),
+        Ast.LocalVariableDeclaration(util.shuffle({ decryptVar, loadVar }), {}),
         generatedSpan
     ))
     -- Insert payload table after the runtime

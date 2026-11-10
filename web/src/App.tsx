@@ -1,4 +1,4 @@
-import { BookText, Check, Copy, Download, FileCode2, Loader2, Play, RotateCcw, Share2, Square, TriangleAlert } from "lucide-react"
+import { BookText, Check, Copy, Download, FileCode2, Loader2, Play, RotateCcw, Share2, Square } from "lucide-react"
 
 // Inline GitHub mark (Lucide removed the branded `Github` icon in v1).
 function GithubMark({ className }: { className?: string }) {
@@ -524,6 +524,12 @@ export default function App() {
                 Docs
                 <BookText className="size-3.5" />
               </a>
+              <a
+                href="#/upload"
+                className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                Upload
+              </a>
               <Button onClick={isObfuscating ? stopCurrentJob : () => void obfuscate()} disabled={isBusy && !isObfuscating} className="min-w-32">
                 {isObfuscating ? <Loader2 className="animate-spin" /> : <Play />}
                 {isObfuscating ? "Stop" : "Obfuscate"}
@@ -617,14 +623,6 @@ export default function App() {
                 <TooltipContent>Share link</TooltipContent>
               </Tooltip>
             </div>
-            {preset === "Strong" ? (
-              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900 md:col-span-2 xl:col-span-5 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                <p>
-                  Strong is very strict and only supports Lua 5.1. It will fail in environments such as the web playground runtime (Lua 5.4).
-                </p>
-              </div>
-            ) : null}
           </div>
         </section>
 

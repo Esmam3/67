@@ -162,11 +162,13 @@ function TableIndirection:apply(ast, pipeline)
 		end
 	end)
 
-	local doBlock = Source.fill(
-		Ast.DoStatement(Ast.Block(initStatements)),
-		generatedSpan
-	)
-	table.insert(ast.body.statements, 1, doBlock)
+	-- The proxy locals (_tip_*) are referenced throughout the program, so they
+	-- must live at the top-level scope. Wrapping them in a `do ... end` block
+	-- would scope them to that block and make them invisible elsewhere
+	-- ("Local binding is not accessible"). Insert the init statements directly.
+	for i = #initStatements, 1, -1 do
+		table.insert(ast.body.statements, 1, initStatements[i])
+	end
 
 	return ast
 end

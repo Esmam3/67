@@ -14,7 +14,6 @@ local MultiLayerEncryption = require("prometheus.steps.MultiLayerEncryption");
 local OpcodeSubstitution = require("prometheus.steps.OpcodeSubstitution");
 local DummyCode = require("prometheus.steps.DummyCode");
 local MBAObfuscation = require("prometheus.steps.MBAObfuscation");
-local DynamicCodeGeneration = require("prometheus.steps.DynamicCodeGeneration");
 local TableIndirection = require("prometheus.steps.TableIndirection");
 local BytecodeEncryption = require("prometheus.steps.BytecodeEncryption");
 local StringMorph = require("prometheus.steps.StringMorph");
@@ -61,8 +60,6 @@ return {
 	["String Morph"] = StringMorph,
 	MBAObfuscation = MBAObfuscation,
 	["MBA Obfuscation"] = MBAObfuscation,
-	DynamicCodeGeneration = DynamicCodeGeneration,
-	["Dynamic Code Generation"] = DynamicCodeGeneration,
 	TableIndirection = TableIndirection,
 	["Table Indirection"] = TableIndirection,
 }

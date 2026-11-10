@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/gen-lua-sources.mjs && vite build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/obfuscate.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}

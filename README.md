@@ -98,7 +98,7 @@ lua cli.lua --preset Medium ./your_file.lua
 
 ## Obfuscation Steps
 
-Prometheus includes **28 obfuscation steps** that can be combined in any order:
+Prometheus includes **27 obfuscation steps** that can be combined in any order:
 
 | Step | Description | Performance Impact |
 |------|-------------|-------------------|
@@ -126,7 +126,6 @@ Prometheus includes **28 obfuscation steps** that can be combined in any order:
 | **OpcodeSubstitution** | Replaces standard operations with equivalent complex expressions | Low |
 | **StringMorph** | Morphs string operations through encoding transformations | Low |
 | **MBAObfuscation** | Replaces arithmetic with mixed boolean-arithmetic expressions | Low |
-| **DynamicCodeGeneration** | Wraps code in dynamically constructed and loaded string chunks | Medium |
 | **TableIndirection** | Redirects variable access through indirection tables | Low-Medium |
 | **Watermark** | Embeds a hidden watermark in the code | Negligible |
 | **WatermarkCheck** | Adds runtime watermark verification | Low |
@@ -140,7 +139,18 @@ Prometheus includes **28 obfuscation steps** that can be combined in any order:
 | **Medium** | VM + Encryption + AntiTamper + CFF + Numbers + DeadCode + Opaques | Balanced protection |
 | **High** | VM + Encryption + AntiTamper + Opaques + DeadCode + CallIndirection + CFF + ConstantUnfolding + Numbers + StringToBytes + BogusControlFlow + EnvironmentChecks + OpcodeSubstitution + DummyCode + StringMorph | Strong protection, moderate overhead |
 | **Strong** | VM + MultiLayerEncryption + AntiTamper + Opaques + DeadCode + CallIndirection + CFF + ConstantUnfolding + Numbers + StringToBytes + BogusControlFlow + EnvironmentChecks + SelfChecksum + OpcodeSubstitution + MBA + DummyCode + BytecodeEncryption + StringMorph + TableIndirection | Heavy protection |
-| **Maximum** | All 28 steps at max settings including DynamicCodeGeneration, MBA, OpcodeSubstitution, TableIndirection | Maximum protection, highest overhead |
+| **Maximum** | All steps at max settings including MBA, OpcodeSubstitution, TableIndirection | Maximum protection, highest overhead |
+
+> **Reliability note:** `Minify`, `Weak`, and `Medium` are verified to produce runnable output across varied inputs and are the presets exposed in the web playground / upload page. `High`, `Strong`, and `Maximum` stack many advanced transforms and can fail on some scripts; treat them as experimental and test their output before relying on it.
+
+## Web playground &amp; server-side obfuscation
+
+The `web/` app is a Vite + React playground that obfuscates Lua in the browser via wasmoon. It also includes:
+
+- An **Upload page** (`#/upload`) where dropping a `.lua` file obfuscates it automatically.
+- A **serverless `/api/obfuscate` endpoint** (`web/api/obfuscate.ts`) that runs the obfuscator server-side via wasmoon, for Vercel deployment. Set a `DATABASE_URL` env var (Neon / Supabase / any Postgres) to persist uploads; it is optional and never blocks a response.
+
+Deploy on Vercel with the project **Root Directory set to `web`** (the included `web/vercel.json` configures the build and the function).
 
 ## Name Generators
 

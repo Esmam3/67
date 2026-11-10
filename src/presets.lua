@@ -505,13 +505,6 @@ return {
 					ChainDepth = 3,
 				},
 			},
-			{
-				Name = "Dynamic Code Generation",
-				Settings = {
-					Threshold = 0.6,
-					MaxDepth = 2,
-				},
-			},
 			{ Name = "AddVararg", Settings = {} },
 		},
 	},

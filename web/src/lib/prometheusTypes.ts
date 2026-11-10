@@ -1,4 +1,8 @@
-export const PRESETS = ["Minify", "Weak", "Medium", "Strong"] as const
+// Only presets verified to reliably produce runnable output across varied inputs
+// are exposed in the UI. Heavier presets (High/Strong/Maximum) exist in the Lua
+// `presets.lua` for CLI/experimentation but stack enough transforms that they can
+// fail on some scripts, so they are intentionally not offered here.
+export const PRESETS = ["Minify", "Weak", "Medium"] as const
 export const LUA_VERSIONS = ["Lua51", "LuaU"] as const
 
 export type PresetName = (typeof PRESETS)[number]
