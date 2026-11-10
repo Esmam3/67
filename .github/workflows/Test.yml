@@ -1,0 +1,24 @@
+name: Test
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+jobs:
+  test-docker:
+    runs-on: ubuntu-latest
+    # Allow waiting for an existing run, followed by the full fallback suite.
+    timeout-minutes: 140
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Validate Lua suite
+        uses: ./.github/actions/validate
