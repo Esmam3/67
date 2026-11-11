@@ -1,4 +1,3 @@
-
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -70,7 +69,7 @@ if not isfolder(Config.ConfigFolder) then makefolder(Config.ConfigFolder) end
 
 
 
-local Themes = {P
+local Themes = {
 	["Halloween"] = {
 		Background = "#0e0b13", Sidebar = "#120e18", Topbar = "#140f1b",
 		Section = "#19131f", Container = "#211a29", Stroke = "#2f2539",
